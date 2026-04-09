@@ -4,25 +4,25 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useUploadThing } from '@/lib/uploadthing'
+import GameSearch from '@/components/GameSearch'
 
-interface GameOption {
+interface SelectedGame {
   id: string
   name: string
-  slug: string
+  cover_url: string | null
 }
 
 export default function SubmitPage() {
   const router = useRouter()
   const { user, accessToken, isLoading } = useAuth()
 
-  const [games, setGames] = useState<GameOption[]>([])
+  const [selectedGame, setSelectedGame] = useState<SelectedGame | null>(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const [form, setForm] = useState({
     title: '',
     category: 'general' as 'guide' | 'easter-egg' | 'review' | 'general',
-    game_id: '',
     body: '',
     is_published: true,
     steps: [] as Array<{ step_num: number; title: string; body: string; image_url: string }>,
@@ -53,20 +53,6 @@ export default function SubmitPage() {
     }
   }, [isLoading, user, router])
 
-  useEffect(() => {
-    async function loadGames() {
-      try {
-        const res = await fetch('/api/games')
-        if (res.ok) {
-          const data = (await res.json()) as { data: GameOption[] }
-          setGames(data.data ?? [])
-        }
-      } catch {
-        // silenciar error
-      }
-    }
-    loadGames()
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -104,6 +90,7 @@ export default function SubmitPage() {
         },
         body: JSON.stringify({
           ...form,
+          game_id: selectedGame?.id ?? null,
           media,
           steps: form.category === 'guide' ? form.steps : [],
         }),
@@ -212,22 +199,11 @@ export default function SubmitPage() {
 
         {/* Juego */}
         <div>
-          <label htmlFor="game_id" className="block text-sm font-medium text-gray-300 mb-1">
-            Juego (opcional)
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Juego <span className="text-gray-500 font-normal">(opcional)</span>
           </label>
-          <select
-            id="game_id"
-            value={form.game_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, game_id: e.target.value }))}
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-          >
-            <option value="">Sin juego especifico</option>
-            {games.map((game) => (
-              <option key={game.id} value={game.id}>
-                {game.name}
-              </option>
-            ))}
-          </select>
+          <GameSearch value={selectedGame} onChange={setSelectedGame} />
+          <p className="mt-1 text-xs text-gray-600">Busca cualquier juego de la base de datos IGDB.</p>
         </div>
 
         {/* Contenido */}
