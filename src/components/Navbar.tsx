@@ -41,8 +41,8 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-gray-900 border-b border-gray-800">
       <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-4">
         {/* Logo */}
-        <Link href="/" className="text-xl font-bold text-indigo-400 hover:text-indigo-300 shrink-0">
-          Forogaming
+        <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-85 transition-opacity">
+          <img src="/logo.png" alt="Forogaming" className="h-10 w-auto" />
         </Link>
 
         {/* Barra de búsqueda */}
