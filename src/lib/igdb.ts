@@ -68,12 +68,7 @@ export async function searchIGDBGames(query: string, limit = 8): Promise<IGDBGam
       Authorization: `Bearer ${token}`,
       'Content-Type': 'text/plain',
     },
-    body: `
-      search "${safeQuery}";
-      fields name, slug, summary, cover.image_id, genres.name, first_release_date;
-      limit ${limit};
-      where version_parent = null & category = (0, 8, 9);
-    `,
+    body: `search "${safeQuery}"; fields name, slug, summary, cover.image_id, genres.name, first_release_date; limit ${limit};`,
   })
 
   if (!res.ok) {
