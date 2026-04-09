@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Rate limit
-    const rl = rateLimitPostCreate(user.id)
+    const rl = await rateLimitPostCreate(user.id)
     if (!rl.success) {
       return NextResponse.json(
         { error: { code: 'RATE_LIMITED', message: 'Has excedido el límite de creación de posts. Intenta más tarde.' } },

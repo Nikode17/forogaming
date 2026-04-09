@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!user) return err('UNAUTHORIZED', 'No autenticado', 401)
   if (user.role === 'guest') return err('FORBIDDEN', 'Acceso denegado', 403)
 
-  const rl = rateLimitVote(user.id)
+  const rl = await rateLimitVote(user.id)
   if (!rl.success) {
     return err('RATE_LIMIT', 'Demasiados votos. Intenta más tarde.', 429)
   }

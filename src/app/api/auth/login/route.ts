@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Rate limit por IP
     const ip = getClientIp(request)
-    const rlResult = rateLimitLogin(ip)
+    const rlResult = await rateLimitLogin(ip)
     if (!rlResult.success) {
       const res = errorResponse('RATE_LIMITED', 'Demasiados intentos. Intenta más tarde.', 429)
       const headers = rateLimitHeaders(rlResult, 10)
