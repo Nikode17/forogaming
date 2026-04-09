@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Feed from '@/components/Feed'
 import Sidebar from '@/components/Sidebar'
+import HeroCarousel from '@/components/HeroCarousel'
 
 async function fetchFromApi(path: string) {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
@@ -38,7 +39,11 @@ export default async function HomePage({
   ]
 
   return (
-    <main className="max-w-7xl mx-auto px-4 py-6">
+    <main>
+      {/* Hero carousel — ancho completo fuera del contenedor */}
+      <HeroCarousel />
+
+      <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Trending bar */}
       {Array.isArray(trending) && trending.length > 0 && (
         <div className="mb-6 bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-indigo-900/40 border border-indigo-800/40 rounded-lg p-4">
@@ -100,6 +105,7 @@ export default async function HomePage({
             baseUrl={`/?sort=${sort}&page=`}
           />
         </div>
+      </div>
       </div>
     </main>
   )
