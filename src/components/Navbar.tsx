@@ -108,6 +108,18 @@ export default function Navbar() {
                   >
                     Crear post
                   </Link>
+                  {user.role === 'admin' && (
+                    <>
+                      <hr className="border-gray-700 my-1" />
+                      <Link
+                        href="/admin"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm text-indigo-400 hover:bg-gray-700"
+                      >
+                        Panel de administración
+                      </Link>
+                    </>
+                  )}
                   <hr className="border-gray-700 my-1" />
                   <button
                     onClick={handleLogout}
