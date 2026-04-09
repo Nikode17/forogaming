@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./node_modules/.bin/tsc --noEmit --pretty)",
+      "Bash(psql --version)",
+      "Bash(npm --version)",
+      "Bash(winget --version)",
+      "Bash(choco --version)",
+      "Bash(winget install:*)",
+      "Bash(winget search:*)"
+    ]
+  }
+}
