@@ -108,6 +108,13 @@ export default function Navbar() {
                   >
                     Crear post
                   </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setDropdownOpen(false)}
+                    className="block px-4 py-2 text-sm text-gray-200 hover:bg-gray-700"
+                  >
+                    Configuración
+                  </Link>
                   {user.role === 'admin' && (
                     <>
                       <hr className="border-gray-700 my-1" />

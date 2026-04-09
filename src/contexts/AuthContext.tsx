@@ -17,6 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   register: (username: string, email: string, password: string) => Promise<void>
+  updateUser: (partial: Partial<AuthUser>) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -67,6 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null)
   }
 
+  const updateUser = (partial: Partial<AuthUser>) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : prev))
+  }
+
   const register = async (username: string, email: string, password: string) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
@@ -81,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, isLoading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, accessToken, isLoading, login, logout, register, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

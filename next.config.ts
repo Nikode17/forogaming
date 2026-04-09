@@ -7,7 +7,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.example.com' },
       { protocol: 'https', hostname: 'i.imgur.com' },
-      // TODO: Agregar dominio CDN real cuando se configure el storage
+      { protocol: 'https', hostname: '*.ufs.sh' },
+      { protocol: 'https', hostname: 'utfs.io' },
     ],
   },
   async headers() {
@@ -37,9 +38,9 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https://images.example.com https://i.imgur.com https://cdn.akamai.steamstatic.com https://cdn.cloudflare.steamstatic.com https://shared.akamai.steamstatic.com",
+              "img-src 'self' data: https://images.example.com https://i.imgur.com https://cdn.akamai.steamstatic.com https://cdn.cloudflare.steamstatic.com https://shared.akamai.steamstatic.com https://*.ufs.sh https://utfs.io",
               "frame-src https://www.youtube.com https://youtu.be https://vimeo.com",
-              "connect-src 'self'",
+              "connect-src 'self' https://*.ufs.sh https://uploadthing.com https://*.uploadthing.com",
               "font-src 'self'",
             ].join('; '),
           },

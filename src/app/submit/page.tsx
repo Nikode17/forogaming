@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUploadThing } from '@/lib/uploadthing'
 
 interface GameOption {
   id: string
@@ -25,6 +26,25 @@ export default function SubmitPage() {
     body: '',
     is_published: true,
     steps: [] as Array<{ step_num: number; title: string; body: string; image_url: string }>,
+  })
+
+  // Cover image upload
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
+  const [uploadingCover, setUploadingCover] = useState(false)
+
+  const { startUpload: startCoverUpload } = useUploadThing('postImageUploader', {
+    headers: { Authorization: `Bearer ${accessToken ?? ''}` },
+    onClientUploadComplete: (res) => {
+      const url = res[0]?.serverData?.url ?? res[0]?.ufsUrl
+      if (url) setCoverUrl(url)
+      setUploadingCover(false)
+    },
+    onUploadError: () => {
+      setError('Error al subir la imagen. Intenta de nuevo.')
+      setUploadingCover(false)
+    },
   })
 
   useEffect(() => {
@@ -63,6 +83,19 @@ export default function SubmitPage() {
 
     setSubmitting(true)
     try {
+      // Si hay imagen pendiente de subir, subirla primero
+      let finalCoverUrl = coverUrl
+      if (coverFile && !coverUrl) {
+        setUploadingCover(true)
+        const uploaded = await startCoverUpload([coverFile])
+        finalCoverUrl = uploaded?.[0]?.serverData?.url ?? uploaded?.[0]?.ufsUrl ?? null
+        setUploadingCover(false)
+      }
+
+      const media = finalCoverUrl
+        ? [{ type: 'image' as const, url: finalCoverUrl, position: 0 }]
+        : []
+
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: {
@@ -71,6 +104,7 @@ export default function SubmitPage() {
         },
         body: JSON.stringify({
           ...form,
+          media,
           steps: form.category === 'guide' ? form.steps : [],
         }),
       })
@@ -211,6 +245,57 @@ export default function SubmitPage() {
           />
         </div>
 
+        {/* Imagen de portada (opcional) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Imagen de portada <span className="text-gray-500 font-normal">(opcional)</span>
+          </label>
+
+          {coverPreview || coverUrl ? (
+            <div className="relative group w-full max-h-60 overflow-hidden rounded-lg border border-gray-700">
+              <img
+                src={coverPreview ?? coverUrl ?? ''}
+                alt="Portada"
+                className="w-full object-cover max-h-60"
+              />
+              <button
+                type="button"
+                onClick={() => { setCoverFile(null); setCoverPreview(null); setCoverUrl(null) }}
+                className="absolute top-2 right-2 bg-gray-900/80 hover:bg-gray-900 text-gray-300 hover:text-white rounded-full w-7 h-7 flex items-center justify-center transition-colors text-xs"
+                aria-label="Eliminar imagen"
+              >
+                ✕
+              </button>
+              {coverUrl && (
+                <div className="absolute bottom-2 left-2 bg-green-900/80 text-green-300 text-xs px-2 py-1 rounded">
+                  ✓ Subida
+                </div>
+              )}
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-700 rounded-lg cursor-pointer hover:border-indigo-500 transition-colors bg-gray-800/30">
+              <svg className="w-8 h-8 text-gray-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm text-gray-500">Haz clic para añadir imagen</span>
+              <span className="text-xs text-gray-600 mt-1">JPG, PNG · Máx 8 MB</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setCoverFile(file)
+                  setCoverPreview(URL.createObjectURL(file))
+                  setCoverUrl(null)
+                }}
+              />
+            </label>
+          )}
+        </div>
+
         {/* Steps (solo para guias) */}
         {form.category === 'guide' && (
           <div>
@@ -299,10 +384,10 @@ export default function SubmitPage() {
           </button>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || uploadingCover}
             className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
           >
-            {submitting ? 'Publicando...' : 'Publicar post'}
+            {uploadingCover ? 'Subiendo imagen...' : submitting ? 'Publicando...' : 'Publicar post'}
           </button>
         </div>
       </form>
