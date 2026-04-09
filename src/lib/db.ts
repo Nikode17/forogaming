@@ -1,4 +1,4 @@
-import { Pool, PoolClient, QueryResult } from 'pg'
+import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg' // QueryResultRow used as constraint
 
 // Singleton pool — reutilizar conexiones entre requests en Next.js
 declare global {
@@ -31,7 +31,7 @@ export const pool: Pool =
  * Ejecuta una query parametrizada contra la base de datos.
  * Usa $1, $2, ... como placeholders para prevenir SQL injection.
  */
-export async function query<T = Record<string, unknown>>(
+export async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params?: unknown[]
 ): Promise<QueryResult<T>> {
