@@ -80,8 +80,7 @@ export async function POST(request: NextRequest) {
        VALUES (gen_random_uuid(), $1, $2, $3, $4)
        ON CONFLICT (slug) DO UPDATE
          SET cover_url   = COALESCE(EXCLUDED.cover_url, games.cover_url),
-             description = COALESCE(EXCLUDED.description, games.description),
-             updated_at  = NOW()
+             description = COALESCE(EXCLUDED.description, games.description)
        RETURNING id`,
       [name, slug, cover_url, summary]
     )
