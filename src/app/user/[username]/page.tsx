@@ -93,7 +93,7 @@ export default async function UserPage({ params }: { params: Promise<{ username:
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden mb-6">
 
         {/* Cover */}
-        <div className={`relative h-40 bg-gradient-to-br ${coverGradient} overflow-hidden`}>
+        <div className={`relative h-40 bg-gradient-to-br ${coverGradient}`}>
           {/* Decorative glows */}
           <div className="absolute right-4 top-4 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute right-1/3 bottom-2 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
