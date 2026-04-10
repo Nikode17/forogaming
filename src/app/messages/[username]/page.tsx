@@ -75,7 +75,11 @@ export default function ChatPage() {
   useEffect(() => {
     if (!accessToken) return
     const interval = setInterval(() => {
-      if (lastCreatedAt.current) loadMessages(lastCreatedAt.current)
+      if (lastCreatedAt.current) {
+        // +1ms para evitar bug de precisión microsegundos en PostgreSQL
+        const since = new Date(new Date(lastCreatedAt.current).getTime() + 1).toISOString()
+        loadMessages(since)
+      }
     }, 3000)
     return () => clearInterval(interval)
   }, [accessToken, loadMessages])
