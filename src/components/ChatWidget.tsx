@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
+import UserAvatar from '@/components/UserAvatar'
 
 interface Conversation {
   other_id: string
   other_username: string
   other_avatar: string | null
+  other_last_seen: string | null
   last_body: string
   last_at: string
   unread: number
@@ -254,17 +256,12 @@ export default function ChatWidget() {
                       onClick={() => openChat(c.other_username)}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-800 transition-colors text-left border-b border-gray-800/60 last:border-0"
                     >
-                      {c.other_avatar ? (
-                        <img
-                          src={c.other_avatar}
-                          alt={c.other_username}
-                          className="w-10 h-10 rounded-full object-cover shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white shrink-0">
-                          {c.other_username.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <UserAvatar
+                        username={c.other_username}
+                        avatarUrl={c.other_avatar}
+                        lastSeen={c.other_last_seen}
+                        size={40}
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className={`text-sm font-semibold truncate ${c.unread > 0 ? 'text-white' : 'text-gray-200'}`}>

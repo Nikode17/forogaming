@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import AddFriendModal from '@/components/AddFriendModal'
+import UserAvatar from '@/components/UserAvatar'
 
 interface Friend {
   id: string
   username: string
   avatar_url: string | null
+  last_seen: string | null
 }
 
 interface PendingRequest {
@@ -146,13 +148,12 @@ export default function FriendsPage() {
             {friends.map((f) => (
               <div key={f.id} className="flex items-center gap-3 px-4 py-3">
                 <Link href={`/user/${f.username}`}>
-                  {f.avatar_url ? (
-                    <img src={f.avatar_url} alt={f.username} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white shrink-0">
-                      {f.username.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <UserAvatar
+                    username={f.username}
+                    avatarUrl={f.avatar_url}
+                    lastSeen={f.last_seen}
+                    size={40}
+                  />
                 </Link>
                 <div className="flex-1">
                   <Link href={`/user/${f.username}`} className="text-sm font-medium text-gray-100 hover:text-white">

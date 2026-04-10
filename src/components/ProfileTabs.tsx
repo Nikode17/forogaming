@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import PostCard from '@/components/PostCard'
 import type { PostCardProps } from '@/components/PostCard'
+import UserAvatar from '@/components/UserAvatar'
 
 interface FavoritePost {
   id: string
@@ -20,6 +21,7 @@ interface Friend {
   id: string
   username: string
   avatar_url: string | null
+  last_seen: string | null
 }
 
 interface Props {
@@ -165,13 +167,12 @@ export default function ProfileTabs({ username, posts, postCount }: Props) {
                 href={`/user/${f.username}`}
                 className="bg-gray-900 border border-gray-800 hover:border-gray-700 rounded-lg px-4 py-3 flex items-center gap-3 transition-colors group"
               >
-                {f.avatar_url ? (
-                  <img src={f.avatar_url} alt={f.username} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white shrink-0">
-                    {f.username.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <UserAvatar
+                  username={f.username}
+                  avatarUrl={f.avatar_url}
+                  lastSeen={f.last_seen}
+                  size={40}
+                />
                 <span className="text-sm font-medium text-gray-200 group-hover:text-white truncate">
                   {f.username}
                 </span>

@@ -20,8 +20,9 @@ export async function GET(
     bio: string | null
     is_banned: boolean
     created_at: string
+    last_seen: string | null
   }>(
-    `SELECT id, username, role, avatar_url, bio, is_banned, created_at
+    `SELECT id, username, role, avatar_url, bio, is_banned, created_at, last_seen
      FROM users
      WHERE username = $1`,
     [username]

@@ -14,8 +14,8 @@ export async function GET(req: NextRequest) {
 
   const [friends, pending] = await Promise.all([
     // Amigos aceptados (en cualquier dirección)
-    query<{ id: string; username: string; avatar_url: string | null }>(`
-      SELECT u.id, u.username, u.avatar_url
+    query<{ id: string; username: string; avatar_url: string | null; last_seen: string | null }>(`
+      SELECT u.id, u.username, u.avatar_url, u.last_seen
       FROM friend_requests fr
       JOIN users u ON u.id = CASE
         WHEN fr.sender_id = $1 THEN fr.receiver_id

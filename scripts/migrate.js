@@ -33,14 +33,37 @@ async function migrate() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 
   try {
-    const sqlPath = path.join(__dirname, '..', 'migrations', '001_initial_schema.sql')
-    const sql = fs.readFileSync(sqlPath, 'utf8')
+    // Tabla de seguimiento de migraciones aplicadas
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `)
 
-    console.log('[migrate] Ejecutando migración 001_initial_schema.sql...')
-    await pool.query(sql)
-    console.log('[migrate] ✅ Migración completada exitosamente')
+    const applied = await pool.query('SELECT filename FROM schema_migrations')
+    const appliedSet = new Set(applied.rows.map(r => r.filename))
+
+    const migrationsDir = path.join(__dirname, '..', 'migrations')
+    const files = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort()
+
+    for (const file of files) {
+      if (appliedSet.has(file)) {
+        console.log(`[migrate] ⏭️  ${file} (ya aplicada)`)
+        continue
+      }
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8')
+      console.log(`[migrate] 🔄 Aplicando ${file}...`)
+      await pool.query(sql)
+      await pool.query('INSERT INTO schema_migrations (filename) VALUES ($1)', [file])
+      console.log(`[migrate] ✅ ${file} completada`)
+    }
+
+    console.log('[migrate] ✅ Todas las migraciones al día')
   } catch (error) {
-    console.error('[migrate] ❌ Error ejecutando migración:', error.message)
+    console.error('[migrate] ❌ Error:', error.message)
     process.exit(1)
   } finally {
     await pool.end()
