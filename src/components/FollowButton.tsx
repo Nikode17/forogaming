@@ -12,20 +12,23 @@ interface Props {
 
 export default function FollowButton({ username, initialFollowing, initialCount }: Props) {
   const { user, accessToken } = useAuth()
-  const [following, setFollowing] = useState(initialFollowing)
+  const [following, setFollowing] = useState<boolean | null>(null) // null = cargando estado real
   const [count, setCount] = useState(initialCount)
   const [loading, setLoading] = useState(false)
 
-  // Verificar estado real desde el cliente (el server component no tiene JWT)
+  // Siempre verificar estado real desde el cliente (server component no tiene JWT)
   useEffect(() => {
-    if (!accessToken) return
+    if (!accessToken || !user) {
+      setFollowing(initialFollowing)
+      return
+    }
     fetch(`/api/users/${username}/follow`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then(r => r.ok ? r.json() : null)
-      .then((d: { following: boolean } | null) => { if (d != null) setFollowing(d.following) })
-      .catch(() => {})
-  }, [accessToken, username])
+      .then((d: { following: boolean } | null) => setFollowing(d?.following ?? initialFollowing))
+      .catch(() => setFollowing(initialFollowing))
+  }, [accessToken, username, user, initialFollowing])
 
   if (!user) {
     return (
@@ -60,14 +63,14 @@ export default function FollowButton({ username, initialFollowing, initialCount 
   return (
     <button
       onClick={toggle}
-      disabled={loading}
+      disabled={loading || following === null}
       className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
         following
           ? 'bg-gray-700 hover:bg-red-900/50 hover:text-red-300 text-gray-200 border border-gray-600'
           : 'bg-indigo-600 hover:bg-indigo-500 text-white'
       }`}
     >
-      {loading ? '...' : following ? 'Siguiendo' : 'Seguir'}
+      {following === null || loading ? '...' : following ? 'Siguiendo' : 'Seguir'}
     </button>
   )
 }
