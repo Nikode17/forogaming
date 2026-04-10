@@ -48,9 +48,17 @@ export async function GET(
     is_following = (f.rowCount ?? 0) > 0
   }
 
+  // Número de amigos
+  const friendsRes = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM friend_requests
+     WHERE (sender_id = $1 OR receiver_id = $1) AND status = 'accepted'`,
+    [user.id]
+  )
+  const friends_count = parseInt(friendsRes.rows[0]?.count ?? '0', 10)
+
   // Si está baneado, devolver perfil sin posts
   if (user.is_banned) {
-    return NextResponse.json({ user: { ...user, followers_count, following_count }, posts: [], post_count: 0, is_following })
+    return NextResponse.json({ user: { ...user, followers_count, following_count, friends_count }, posts: [], post_count: 0, is_following })
   }
 
   const postsResult = await query<{
@@ -80,7 +88,7 @@ export async function GET(
   )
 
   return NextResponse.json({
-    user: { ...user, followers_count, following_count },
+    user: { ...user, followers_count, following_count, friends_count },
     posts: postsResult.rows,
     post_count: parseInt(countResult.rows[0].count, 10),
     is_following,
