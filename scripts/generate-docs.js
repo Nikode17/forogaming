@@ -310,11 +310,11 @@ const html = `<!DOCTYPE html>
   <div class="cover-meta">
     <table>
       <tr><td>Documento</td><td>Documentación técnica del proyecto</td></tr>
-      <tr><td>Versión</td><td>0.1.0</td></tr>
-      <tr><td>Fecha</td><td>9 de abril de 2026</td></tr>
-      <tr><td>Estado</td><td>Desarrollo activo · servidor corriendo</td></tr>
-      <tr><td>Stack</td><td>Next.js 16 · TypeScript · PostgreSQL 17 · Tailwind CSS</td></tr>
-      <tr><td>URL local</td><td>http://localhost:3000</td></tr>
+      <tr><td>Versión</td><td>1.2.0</td></tr>
+      <tr><td>Fecha</td><td>10 de abril de 2026</td></tr>
+      <tr><td>Estado</td><td>Producción · https://forogaming.vercel.app</td></tr>
+      <tr><td>Stack</td><td>Next.js 16 · TypeScript · PostgreSQL (Neon) · Tailwind CSS</td></tr>
+      <tr><td>Servicios</td><td>Vercel · Neon · Uploadthing · IGDB API</td></tr>
     </table>
   </div>
 
@@ -380,7 +380,12 @@ const html = `<!DOCTYPE html>
         <tr><td>Auth</td><td>JWT (15 min) + refresh token (7 días, httpOnly cookie)</td><td>✅ Implementado</td></tr>
         <tr><td>Moderación</td><td>Reportes, baneos, eliminación de contenido por moderadores</td><td>✅ Implementado</td></tr>
         <tr><td>Búsqueda</td><td>Full-text con ILIKE en título y cuerpo</td><td>✅ Implementado</td></tr>
-        <tr><td>Upload S3</td><td>Presigned URLs para subida directa (ADR-004)</td><td>⏳ Stub — falta configurar</td></tr>
+        <tr><td>Upload imágenes</td><td>Avatares (2 MB) e imágenes de posts (8 MB) vía Uploadthing</td><td>✅ Implementado</td></tr>
+        <tr><td>IGDB</td><td>Búsqueda de juegos en tiempo real, páginas enriquecidas con portada, capturas, géneros y rating</td><td>✅ Implementado</td></tr>
+        <tr><td>Seguir usuarios</td><td>Follow / unfollow con contador de seguidores/seguidos en el perfil</td><td>✅ Implementado</td></tr>
+        <tr><td>Mensajería directa</td><td>Chat privado con polling cada 3 s, marca de leído (✓), badge de no leídos en Navbar</td><td>✅ Implementado</td></tr>
+        <tr><td>Sistema de amigos</td><td>Solicitudes de amistad, aceptar/rechazar, lista de amigos, badge de solicitudes pendientes</td><td>✅ Implementado</td></tr>
+        <tr><td>Configuración de perfil</td><td>Página /settings: cambiar avatar (Uploadthing) y bio</td><td>✅ Implementado</td></tr>
       </tbody>
     </table>
   </div>
@@ -398,8 +403,10 @@ const html = `<!DOCTYPE html>
         <tr><td>Auth tokens</td><td>jose</td><td>5.x</td><td>JWT compatible con Edge Runtime de Next.js</td></tr>
         <tr><td>Passwords</td><td>bcryptjs</td><td>2.4</td><td>Hashing con cost factor 12 (SDD §5.4)</td></tr>
         <tr><td>Validación</td><td>Zod</td><td>3.22</td><td>Schemas en servidor y cliente, formateo de errores unificado</td></tr>
-        <tr><td>Sanitización</td><td>isomorphic-dompurify</td><td>2.4</td><td>Prevención XSS en posts y comentarios (SDD §5.3)</td></tr>
+        <tr><td>Sanitización</td><td>Implementación nativa</td><td>—</td><td>Reemplaza isomorphic-dompurify (incompatible con Turbopack/ESM). Prevención XSS sin dependencias externas.</td></tr>
         <tr><td>Rate limiting</td><td>Implementación propia</td><td>—</td><td>Sliding window en memoria; migrar a Redis en v2</td></tr>
+        <tr><td>Upload de imágenes</td><td>Uploadthing</td><td>v7</td><td>Avatares (2 MB) e imágenes de posts (8 MB). Auth vía JWT en el file router.</td></tr>
+        <tr><td>API de juegos</td><td>IGDB (Twitch)</td><td>v4</td><td>Búsqueda Apicalypse, token OAuth cached en módulo, cover CDN. Enriquece páginas de juego con screenshots, géneros y rating.</td></tr>
         <tr><td>Runtime</td><td>Node.js</td><td>22.20</td><td>Versión LTS activa</td></tr>
       </tbody>
     </table>
@@ -410,8 +417,11 @@ const html = `<!DOCTYPE html>
     <li><strong>ADR-001:</strong> Stack Next.js fullstack (Opción A) — SSR, ecosistema maduro, menor overhead.</li>
     <li><strong>ADR-002:</strong> Comentarios con adjacency list (<code>parent_id</code>) — simple, suficiente para 2–4 niveles.</li>
     <li><strong>ADR-003:</strong> Trending con score tipo Reddit recalculado sobre vista SQL <code>post_scores</code>.</li>
-    <li><strong>ADR-004:</strong> Upload con presigned URL — el frontend sube directamente a S3, el backend no actúa de proxy.</li>
+    <li><strong>ADR-004:</strong> Upload con Uploadthing v7 — file router con auth JWT, sin configuración de S3 propia. Avatares 2 MB, imágenes de posts 8 MB.</li>
     <li><strong>ADR-005:</strong> Votos y likes son sistemas separados — votos afectan ranking, likes son emocionales.</li>
+    <li><strong>ADR-006:</strong> Mensajería con polling cada 3 s (no WebSocket) — compatible con Vercel serverless, suficiente para el volumen actual.</li>
+    <li><strong>ADR-007:</strong> IGDB como fuente de metadatos de juegos — Twitch OAuth con token cacheado en módulo, query Apicalypse sin cláusula <code>where</code> (incompatible con <code>search</code>).</li>
+    <li><strong>ADR-008:</strong> Sanitización HTML nativa sin dependencias — reemplaza isomorphic-dompurify que fallaba en Vercel/Turbopack por incompatibilidad ESM de jsdom → @exodus/bytes.</li>
   </ul>
 </div>
 
@@ -609,17 +619,22 @@ APP_ENV=development</pre>
     │   ├── <span class="file">auth.ts</span>         <span class="note">← JWT: signAccessToken, signRefreshToken, verifyAccessToken</span>
     │   ├── <span class="file">password.ts</span>     <span class="note">← hashPassword(), verifyPassword() con bcrypt cost 12</span>
     │   ├── <span class="file">ratelimit.ts</span>    <span class="note">← Rate limiter sliding window en memoria</span>
-    │   ├── <span class="file">sanitize.ts</span>     <span class="note">← Sanitización XSS con DOMPurify</span>
-    │   └── <span class="file">validation.ts</span>   <span class="note">← Schemas Zod para todos los inputs de API</span>
+    │   ├── <span class="file">sanitize.ts</span>     <span class="note">← Sanitización XSS nativa (sin dependencias externas)</span>
+    │   ├── <span class="file">validation.ts</span>   <span class="note">← Schemas Zod para todos los inputs de API</span>
+    │   ├── <span class="file">uploadthing.ts</span>  <span class="note">← generateReactHelpers para useUploadThing en el cliente</span>
+    │   └── <span class="file">igdb.ts</span>         <span class="note">← Twitch OAuth + IGDB Apicalypse: searchIGDBGames, getIGDBGameDetails</span>
     │
     ├── <span class="dir">components/</span>        <span class="note">← Componentes React reutilizables</span>
-    │   ├── <span class="file">Navbar.tsx</span>      <span class="note">← Barra superior: logo, búsqueda, menú de usuario</span>
+    │   ├── <span class="file">Navbar.tsx</span>      <span class="note">← Logo, búsqueda, menú usuario, badge mensajes y amigos</span>
     │   ├── <span class="file">Sidebar.tsx</span>     <span class="note">← Navegación lateral: categorías y juegos</span>
     │   ├── <span class="file">Feed.tsx</span>        <span class="note">← Lista de PostCards con paginación</span>
     │   ├── <span class="file">PostCard.tsx</span>    <span class="note">← Tarjeta de post con votos, badges y metadatos</span>
-    │   ├── <span class="file">VoteButtons.tsx</span> <span class="note">← Botones ▲/▼ con optimistic updates (Client Component)</span>
+    │   ├── <span class="file">VoteButtons.tsx</span> <span class="note">← Botones ▲/▼ con optimistic updates</span>
     │   ├── <span class="file">CommentTree.tsx</span> <span class="note">← Árbol de comentarios anidados recursivo</span>
-    │   └── <span class="file">CommentForm.tsx</span> <span class="note">← Formulario inline de nuevo comentario / respuesta</span>
+    │   ├── <span class="file">CommentForm.tsx</span> <span class="note">← Formulario inline de nuevo comentario / respuesta</span>
+    │   ├── <span class="file">GameSearch.tsx</span>  <span class="note">← Buscador IGDB con debounce para el formulario de post</span>
+    │   ├── <span class="file">FollowButton.tsx</span><span class="note">← Botón seguir/dejar de seguir con estado real desde el cliente</span>
+    │   └── <span class="file">AddFriendModal.tsx</span><span class="note">← Modal de búsqueda de usuarios y envío de solicitud de amistad</span>
     │
     └── <span class="dir">app/</span>               <span class="note">← Next.js App Router</span>
         ├── <span class="file">layout.tsx</span>      <span class="note">← Root layout: AuthProvider + Navbar + main</span>
@@ -630,24 +645,32 @@ APP_ENV=development</pre>
         │   ├── <span class="file">login/page.tsx</span>
         │   └── <span class="file">register/page.tsx</span>
         │
-        ├── <span class="dir">game/[slug]/page.tsx</span>      <span class="note">← Feed filtrado por juego</span>
+        ├── <span class="dir">game/[slug]/page.tsx</span>      <span class="note">← Página enriquecida: hero IGDB, screenshots, rating, géneros</span>
+        ├── <span class="dir">games/page.tsx</span>            <span class="note">← Catálogo de juegos con portadas</span>
         ├── <span class="dir">post/[id]/page.tsx</span>        <span class="note">← Vista completa del post + comentarios</span>
         ├── <span class="dir">category/[type]/page.tsx</span>  <span class="note">← Feed por categoría</span>
         ├── <span class="dir">search/page.tsx</span>           <span class="note">← Búsqueda full-text</span>
-        ├── <span class="dir">user/[username]/page.tsx</span>  <span class="note">← Perfil público</span>
-        ├── <span class="dir">submit/page.tsx</span>           <span class="note">← Crear post (auth required)</span>
+        ├── <span class="dir">user/[username]/page.tsx</span>  <span class="note">← Perfil público con FollowButton, stats y posts</span>
+        ├── <span class="dir">settings/page.tsx</span>         <span class="note">← Ajustes de perfil: avatar (Uploadthing) y bio</span>
+        ├── <span class="dir">messages/page.tsx</span>         <span class="note">← Lista de conversaciones con última mensaje y no leídos</span>
+        ├── <span class="dir">messages/[username]/page.tsx</span><span class="note">← Chat con polling 3 s, separadores de fecha, ✓ de leído</span>
+        ├── <span class="dir">friends/page.tsx</span>          <span class="note">← Lista de amigos + solicitudes pendientes con aceptar/rechazar</span>
+        ├── <span class="dir">submit/page.tsx</span>           <span class="note">← Crear post con buscador IGDB integrado</span>
         ├── <span class="dir">admin/page.tsx</span>            <span class="note">← Panel de moderación</span>
         ├── <span class="dir">admin/reports/page.tsx</span>    <span class="note">← Gestión de reportes</span>
         ├── <span class="dir">admin/users/page.tsx</span>      <span class="note">← Gestión de usuarios</span>
         │
-        └── <span class="dir">api/</span>               <span class="note">← 22 rutas API REST</span>
+        └── <span class="dir">api/</span>               <span class="note">← 40+ rutas API REST</span>
             ├── <span class="dir">auth/</span>            <span class="note">register · login · refresh · logout</span>
             ├── <span class="dir">posts/</span>           <span class="note">CRUD · trending · search · [id]/comments</span>
             ├── <span class="dir">comments/[id]/</span>
             ├── <span class="dir">votes/ · likes/ · favorites/[postId]/</span>
-            ├── <span class="dir">games/ · users/ · reports/</span>
-            ├── <span class="dir">admin/</span>           <span class="note">reports · users/[id]/ban · posts/[id]</span>
-            ├── <span class="dir">media/presign/</span>
+            ├── <span class="dir">games/ · games/search/</span>   <span class="note">IGDB search + upsert en DB</span>
+            ├── <span class="dir">users/</span>           <span class="note">me · [username] · [username]/follow · search</span>
+            ├── <span class="dir">messages/</span>        <span class="note">conversaciones · [username] · unread</span>
+            ├── <span class="dir">friends/</span>         <span class="note">lista · request · respond · pending</span>
+            ├── <span class="dir">uploadthing/</span>     <span class="note">file router: avatarUploader · postImageUploader</span>
+            ├── <span class="dir">reports/ · admin/</span>
             └── <span class="dir">health/</span>
   </div>
 </div>
@@ -734,7 +757,7 @@ APP_ENV=development</pre>
     </table>
   </div>
 
-  <h4>Otras tablas</h4>
+  <h4>Otras tablas del schema inicial</h4>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Tabla</th><th>Propósito</th><th>Claves foráneas</th></tr></thead>
@@ -747,6 +770,30 @@ APP_ENV=development</pre>
         <tr><td><code>favorites</code></td><td>Posts guardados por el usuario</td><td>user_id → users; post_id → posts; UNIQUE(user_id, post_id)</td></tr>
         <tr><td><code>reports</code></td><td>Denuncias de contenido o usuarios</td><td>reporter_id → users</td></tr>
         <tr><td><code>revoked_tokens</code></td><td>Lista negra de refresh tokens revocados en logout</td><td>jti (PK VARCHAR)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Tablas añadidas en producción (Neon)</h4>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tabla</th><th>Campos principales</th><th>Propósito</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>follows</code></td>
+          <td><code>follower_id</code> UUID FK → users<br/><code>following_id</code> UUID FK → users<br/>UNIQUE(follower_id, following_id)</td>
+          <td>Sistema de seguimiento entre usuarios. Un row = un follow.</td>
+        </tr>
+        <tr>
+          <td><code>direct_messages</code></td>
+          <td><code>id</code> UUID PK<br/><code>sender_id</code> UUID FK → users<br/><code>receiver_id</code> UUID FK → users<br/><code>body</code> TEXT (max 2000)<br/><code>read_at</code> TIMESTAMPTZ nullable<br/><code>created_at</code> TIMESTAMPTZ</td>
+          <td>Mensajes directos entre usuarios. <code>read_at</code> NULL = no leído. El receptor los marca como leídos al abrir el chat.</td>
+        </tr>
+        <tr>
+          <td><code>friend_requests</code></td>
+          <td><code>id</code> UUID PK<br/><code>sender_id</code> UUID FK → users<br/><code>receiver_id</code> UUID FK → users<br/><code>status</code> TEXT CHECK (pending/accepted/rejected)<br/><code>created_at</code> TIMESTAMPTZ<br/>UNIQUE(sender_id, receiver_id)</td>
+          <td>Solicitudes de amistad. Auto-acepta si ya existe solicitud inversa pendiente. La restricción UNIQUE evita duplicados.</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -849,25 +896,75 @@ APP_ENV=development</pre>
     </table>
   </div>
 
-  <h3>Juegos · Usuarios · Reportes · Admin</h3>
+  <h3>Juegos — /api/games</h3>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Auth</th></tr></thead>
       <tbody>
-        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/games</code></td><td>Lista de juegos con post_count</td><td><span class="badge badge-public">Pública</span></td></tr>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/games</code></td><td>Lista de juegos con post_count y portada</td><td><span class="badge badge-public">Pública</span></td></tr>
         <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/games/:slug</code></td><td>Detalle de juego + últimos posts</td><td><span class="badge badge-public">Pública</span></td></tr>
-        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/games</code></td><td>Crear juego</td><td><span class="badge badge-admin">Admin</span></td></tr>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/games/search?q=</code></td><td>Búsqueda en IGDB con Apicalypse (debounce 350 ms en cliente)</td><td><span class="badge badge-public">Pública</span></td></tr>
+        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/games/search</code></td><td>Upsert de juego IGDB en la DB local (ON CONFLICT slug DO UPDATE)</td><td><span class="badge badge-auth">Usuario+</span></td></tr>
+        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/games</code></td><td>Crear juego manualmente</td><td><span class="badge badge-admin">Admin</span></td></tr>
         <tr><td><span class="badge badge-put">PUT</span></td><td><code>/api/games/:slug</code></td><td>Editar juego</td><td><span class="badge badge-admin">Admin</span></td></tr>
-        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/users/:username</code></td><td>Perfil público (sin email ni hash)</td><td><span class="badge badge-public">Pública</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Usuarios — /api/users</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/users/:username</code></td><td>Perfil público con followers_count, following_count, is_following</td><td><span class="badge badge-public">Pública</span></td></tr>
         <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/users/me</code></td><td>Mi perfil completo</td><td><span class="badge badge-auth">JWT</span></td></tr>
-        <tr><td><span class="badge badge-put">PUT</span></td><td><code>/api/users/me</code></td><td>Actualizar username / bio / avatar</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-put">PUT</span></td><td><code>/api/users/me</code></td><td>Actualizar username / bio / avatar_url</td><td><span class="badge badge-auth">JWT</span></td></tr>
         <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/users/me/favorites</code></td><td>Mis favoritos paginados</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/users/search?q=</code></td><td>Búsqueda ILIKE de usuarios por username (para AddFriendModal)</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/users/:username/follow</code></td><td>Estado de seguimiento del usuario autenticado hacia el target</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/users/:username/follow</code></td><td>Seguir usuario (INSERT ON CONFLICT DO NOTHING)</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-delete">DELETE</span></td><td><code>/api/users/:username/follow</code></td><td>Dejar de seguir usuario</td><td><span class="badge badge-auth">JWT</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Mensajería — /api/messages</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/messages</code></td><td>Lista de conversaciones activas con última mensaje, timestamp y unread count (LATERAL join)</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/messages/:username</code></td><td>Mensajes con un usuario. Acepta <code>?since=ISO</code> para polling incremental. Marca mensajes recibidos como leídos.</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/messages/:username</code></td><td>Enviar mensaje (máx 2000 caracteres). Bloquea auto-mensajes.</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/messages/unread</code></td><td>Número de mensajes no leídos (para badge de Navbar, poll 10 s)</td><td><span class="badge badge-auth">JWT</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Amigos — /api/friends</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/friends</code></td><td>Lista de amigos aceptados + solicitudes entrantes pendientes</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/friends/request</code></td><td>Enviar solicitud. Auto-acepta si ya existe solicitud inversa pendiente.</td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/friends/respond</code></td><td>Aceptar o rechazar solicitud por <code>request_id</code></td><td><span class="badge badge-auth">JWT</span></td></tr>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/friends/pending</code></td><td>Número de solicitudes entrantes pendientes (badge Navbar, poll 15 s)</td><td><span class="badge badge-auth">JWT</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Upload · Reportes · Admin · Health</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-get">GET</span><span class="badge badge-post">POST</span></td><td><code>/api/uploadthing</code></td><td>File router Uploadthing: <code>avatarUploader</code> (2 MB) y <code>postImageUploader</code> (8 MB). Auth vía JWT en middleware.</td><td><span class="badge badge-auth">JWT</span></td></tr>
         <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/reports</code></td><td>Reportar post / comentario / usuario</td><td><span class="badge badge-auth">Usuario+</span></td></tr>
         <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/admin/reports</code></td><td>Ver reportes (filtro por status)</td><td><span class="badge badge-admin">Mod+</span></td></tr>
         <tr><td><span class="badge badge-put">PUT</span></td><td><code>/api/admin/reports/:id</code></td><td>Resolver / desestimar reporte</td><td><span class="badge badge-admin">Mod+</span></td></tr>
         <tr><td><span class="badge badge-put">PUT</span></td><td><code>/api/admin/users/:id/ban</code></td><td>Banear / desbanear usuario</td><td><span class="badge badge-admin">Mod+</span></td></tr>
         <tr><td><span class="badge badge-delete">DELETE</span></td><td><code>/api/admin/posts/:id</code></td><td>Eliminar cualquier post</td><td><span class="badge badge-admin">Mod+</span></td></tr>
-        <tr><td><span class="badge badge-post">POST</span></td><td><code>/api/media/presign</code></td><td>Obtener presigned URL para upload S3 (stub, requiere configurar S3_*)</td><td><span class="badge badge-auth">Usuario+</span></td></tr>
         <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/health</code></td><td>Health check: <code>{ status: "ok", db: "connected" }</code></td><td><span class="badge badge-public">Pública</span></td></tr>
       </tbody>
     </table>
@@ -998,7 +1095,7 @@ x-user-username → payload.username</pre>
     <div class="section-title">Correcciones aplicadas</div>
   </div>
 
-  <p>Al actualizar Next.js de 15.1.0 a 16.2.3, el servidor reportó dos avisos de deprecación que se corrigieron inmediatamente.</p>
+  <p>A lo largo del desarrollo se detectaron y corrigieron varios problemas técnicos significativos.</p>
 
   <h3>Corrección 1 — images.domains → images.remotePatterns</h3>
 
@@ -1063,6 +1160,44 @@ images: {
     ✅ Tras ambas correcciones, el servidor arrancó sin ningún aviso y el health check respondió correctamente:
     <code>{ "status": "ok", "db": "connected" }</code>
   </div>
+
+  <h3>Corrección 3 — isomorphic-dompurify crasheaba todas las API routes en Vercel</h3>
+
+  <h4>¿Qué era el problema?</h4>
+  <p>
+    Todas las rutas API que usaban <code>sanitize.ts</code> (posts, comentarios, usuarios) fallaban en producción con
+    <code>ERR_REQUIRE_ESM</code>. La cadena de dependencias era:
+    <code>isomorphic-dompurify → jsdom → html-encoding-sniffer → @exodus/bytes</code>.
+    El paquete <code>@exodus/bytes</code> es ESM-only y Vercel/Turbopack no puede importarlo con <code>require()</code>.
+  </p>
+
+  <h4>¿Qué se cambió?</h4>
+  <p>Se reemplazó completamente <code>isomorphic-dompurify</code> con una implementación nativa en <code>src/lib/sanitize.ts</code>
+  que no tiene ninguna dependencia externa:</p>
+  <ul>
+    <li><code>sanitizePlainText(text)</code> — elimina todas las etiquetas HTML y escapa entidades.</li>
+    <li><code>sanitizePostBody(html)</code> — whitelist de tags permitidos en posts (headings, listas, imágenes, enlaces, embeds).</li>
+    <li><code>sanitizeComment(html)</code> — whitelist restrictiva para comentarios (solo formato básico: <code>b, i, u, a, code</code>).</li>
+  </ul>
+  <div class="success-box">✅ Tras el fix, todos los endpoints de posts, comentarios y perfil volvieron a funcionar en producción.</div>
+
+  <h3>Corrección 4 — Mensajes duplicándose por precisión de microsegundos</h3>
+
+  <h4>¿Qué era el problema?</h4>
+  <p>
+    El chat usaba <code>created_at</code> del último mensaje como parámetro <code>?since=</code> para el polling incremental.
+    PostgreSQL almacena TIMESTAMPTZ con precisión de microsegundos (<code>.123456</code>), pero <code>JSON.stringify</code>
+    trunca los timestamps de Date a milisegundos (<code>.123Z</code>). El mismo mensaje se devolvía en el siguiente poll
+    porque <code>.123456 &gt; .123000</code> pasaba el filtro <code>WHERE created_at &gt; $since</code>.
+  </p>
+
+  <h4>¿Qué se cambió?</h4>
+  <p>
+    El cliente ahora suma 1 ms al timestamp antes de usarlo como <code>since</code>:
+    <code>new Date(lastCreatedAt.getTime() + 1).toISOString()</code>.
+    Además, se añadió deduplicación por <code>id</code> al añadir mensajes al estado para mayor robustez.
+  </p>
+  <div class="success-box">✅ Los mensajes ya no se duplican en el chat.</div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════════ -->
@@ -1093,50 +1228,42 @@ images: {
         <tr><td>API de usuarios</td><td>✅ Completo</td><td>Perfil público, mi perfil, edición, mis favoritos</td></tr>
         <tr><td>API de moderación</td><td>✅ Completo</td><td>Reportes, baneos, eliminación de contenido</td></tr>
         <tr><td>Seguridad</td><td>✅ Completo</td><td>Rate limiting, XSS sanitization, security headers, Zod validation</td></tr>
-        <tr><td>Frontend — componentes</td><td>✅ Completo</td><td>Navbar, Sidebar, Feed, PostCard, VoteButtons, CommentTree</td></tr>
-        <tr><td>Frontend — páginas</td><td>✅ Completo</td><td>12 páginas: home, post, game, category, search, user, submit, login, register, admin</td></tr>
-        <tr><td>Upload de media (S3)</td><td>⏳ Stub</td><td>Endpoint implementado pero devuelve 501 hasta configurar S3</td></tr>
+        <tr><td>Frontend — componentes</td><td>✅ Completo</td><td>Navbar, Sidebar, Feed, PostCard, VoteButtons, CommentTree, GameSearch, FollowButton, AddFriendModal</td></tr>
+        <tr><td>Frontend — páginas</td><td>✅ Completo</td><td>19 páginas: home, post, game (IGDB), games, category, search, user, submit, settings, messages, messages/chat, friends, login, register, admin (×4)</td></tr>
+        <tr><td>Upload de imágenes</td><td>✅ Completo</td><td>Uploadthing v7: avatares en /settings, imágenes en formulario de post</td></tr>
+        <tr><td>IGDB</td><td>✅ Completo</td><td>Búsqueda en tiempo real, upsert en DB, páginas enriquecidas con screenshots y rating</td></tr>
+        <tr><td>Seguimiento</td><td>✅ Completo</td><td>Follow/unfollow, contadores en perfil, FollowButton con estado real desde cliente</td></tr>
+        <tr><td>Mensajería directa</td><td>✅ Completo</td><td>Chat con polling 3 s, marca de leído, badge en Navbar, lista de conversaciones</td></tr>
+        <tr><td>Sistema de amigos</td><td>✅ Completo</td><td>Solicitudes, aceptar/rechazar, lista de amigos, badge en Navbar</td></tr>
       </tbody>
     </table>
   </div>
 
   <h3>Qué falta por configurar</h3>
 
-  <h4>1. Almacenamiento de imágenes (S3 / R2)</h4>
-  <p>El endpoint <code>POST /api/media/presign</code> está implementado pero devuelve un stub (HTTP 501) hasta que se configuren las variables de entorno S3. Pasos:</p>
-  <ol>
-    <li>Elegir proveedor: <strong>Cloudflare R2</strong> (recomendado, sin coste de egress), AWS S3, o Supabase Storage.</li>
-    <li>Crear bucket y credenciales en el proveedor elegido.</li>
-    <li>Añadir al <code>.env.local</code>: <code>S3_ENDPOINT</code>, <code>S3_ACCESS_KEY_ID</code>, <code>S3_SECRET_ACCESS_KEY</code>, <code>S3_BUCKET</code>, <code>S3_PUBLIC_URL</code>.</li>
-    <li>Instalar el SDK: <code>npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner</code></li>
-    <li>Implementar la lógica en <code>src/app/api/media/presign/route.ts</code> (hay comentarios TODO en el archivo).</li>
-  </ol>
-
-  <h4>2. Primer usuario administrador</h4>
-  <p>No hay interfaz de registro de admin. Para crear el primer admin:</p>
-  <pre>PGPASSWORD=postgres psql -U postgres -d forogaming -c \
-  "UPDATE users SET role = 'admin' WHERE username = 'tu_usuario';"</pre>
-
-  <h4>3. Búsqueda full-text optimizada</h4>
-  <p>La búsqueda actual usa ILIKE (suficiente para desarrollo). Para producción con alto volumen de posts, migrar a índice GIN:</p>
+  <h4>1. Búsqueda full-text optimizada (GIN)</h4>
+  <p>La búsqueda actual usa ILIKE (suficiente para el volumen actual). Para producción con alto volumen de posts, migrar a índice GIN:</p>
   <pre><span class="keyword">ALTER TABLE</span> posts <span class="keyword">ADD COLUMN</span> search_vector tsvector
   <span class="keyword">GENERATED ALWAYS AS</span> (to_tsvector(<span class="string">'spanish'</span>, title || <span class="string">' '</span> || body)) STORED;
 <span class="keyword">CREATE INDEX</span> idx_posts_fts <span class="keyword">ON</span> posts <span class="keyword">USING GIN</span>(search_vector);</pre>
+
+  <h4>2. Rate limiter en Redis</h4>
+  <p>El rate limiter actual usa memoria en proceso (sliding window). En Vercel serverless cada instancia tiene su propia memoria, por lo que el límite no es global. Para producción real migrar a Upstash Redis:</p>
+  <pre>npm install @upstash/ratelimit @upstash/redis</pre>
 
   <h3>Roadmap — próximas iteraciones</h3>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Prioridad</th><th>Feature</th><th>Notas</th></tr></thead>
       <tbody>
-        <tr><td>🔴 Alta</td><td>Configurar S3/R2 para uploads</td><td>Bloqueante para publicar posts con imágenes reales</td></tr>
-        <tr><td>🔴 Alta</td><td>Crear primer usuario admin</td><td>Sin admin no se pueden crear juegos desde la UI</td></tr>
-        <tr><td>🟡 Media</td><td>Migrar rate limiter a Redis</td><td>Necesario al escalar a múltiples instancias</td></tr>
-        <tr><td>🟡 Media</td><td>Índice GIN para búsqueda full-text</td><td>Rendimiento en producción con muchos posts</td></tr>
-        <tr><td>🟡 Media</td><td>Tests unitarios e integración</td><td>SDD especifica cobertura mínima 70%</td></tr>
-        <tr><td>🟢 Baja</td><td>i18n (internacionalización)</td><td>Arquitectura preparada, textos externalizados</td></tr>
+        <tr><td>🟡 Media</td><td>Migrar rate limiter a Upstash Redis</td><td>Necesario al escalar a múltiples instancias serverless</td></tr>
+        <tr><td>🟡 Media</td><td>Índice GIN para búsqueda full-text</td><td>Mejora rendimiento con alto volumen de posts</td></tr>
+        <tr><td>🟡 Media</td><td>Tests unitarios e integración</td><td>Cobertura mínima objetivo 70%</td></tr>
+        <tr><td>🟡 Media</td><td>Notificaciones en tiempo real</td><td>WebSocket o SSE para reemplazar los pollings actuales</td></tr>
+        <tr><td>🟢 Baja</td><td>Estado de amistad en perfiles</td><td>Mostrar "Amigos" / "Solicitud enviada" en /user/:username</td></tr>
+        <tr><td>🟢 Baja</td><td>i18n (internacionalización)</td><td>Actualmente en español; arquitectura preparada para múltiples idiomas</td></tr>
         <tr><td>🟢 Baja</td><td>CDN para assets estáticos</td><td>Configurar en next.config.ts remotePatterns</td></tr>
-        <tr><td>🟢 Baja</td><td>Mensajería privada</td><td>Fuera de alcance v1 según SDD §1.4</td></tr>
-        <tr><td>🟢 Baja</td><td>Integración IGDB / Steam API</td><td>Fuera de alcance v1 según SDD §1.4</td></tr>
+        <tr><td>🟢 Baja</td><td>Moderación de mensajes privados</td><td>Reportar mensajes individuales</td></tr>
       </tbody>
     </table>
   </div>
@@ -1161,8 +1288,129 @@ images: {
 
   <br/><br/>
   <div class="info-box" style="text-align:center;">
-    <strong>Forogaming v0.1.0</strong> · Documentación generada el 9 de abril de 2026<br/>
-    Proyecto desarrollado íntegramente con Claude Code (Anthropic) · Next.js 16 + PostgreSQL 17
+    <strong>Forogaming v1.2.0</strong> · Documentación generada el 10 de abril de 2026<br/>
+    Proyecto desarrollado íntegramente con Claude Code (Anthropic) · Next.js 16 + PostgreSQL (Neon) + Uploadthing + IGDB
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  SECCIÓN 9 — DESPLIEGUE EN PRODUCCIÓN                                 -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <div class="section-title">Despliegue en Producción</div>
+  </div>
+
+  <div class="success-box">
+    ✅ Forogaming está desplegado y operativo en producción desde el 9 de abril de 2026.
+    Stack: GitHub (código) + Vercel (hosting) + Neon (PostgreSQL serverless) — coste mensual: 0 €.
+  </div>
+
+  <h3>Infraestructura</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Servicio</th><th>Proveedor</th><th>URL / Detalle</th><th>Plan</th></tr></thead>
+      <tbody>
+        <tr><td>Frontend + API</td><td>Vercel</td><td>https://forogaming.vercel.app</td><td>Hobby (gratuito)</td></tr>
+        <tr><td>Base de datos</td><td>Neon</td><td>PostgreSQL 16 serverless · eu-west-2 (AWS Londres)</td><td>Free tier</td></tr>
+        <tr><td>Código fuente</td><td>GitHub</td><td>https://github.com/Nikode17/forogaming</td><td>Public repo</td></tr>
+        <tr><td>CI/CD</td><td>Vercel</td><td>Deploy automático en cada push a <code>master</code></td><td>Incluido</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Variables de entorno en producción (Vercel)</h3>
+  <div class="warn-box">⚠️ Estos valores son privados. Se configuran en el panel de Vercel, nunca en el repositorio.</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Variable</th><th>Descripción</th></tr></thead>
+      <tbody>
+        <tr><td><code>DATABASE_URL</code></td><td>Connection string de Neon con <code>sslmode=require</code></td></tr>
+        <tr><td><code>JWT_SECRET</code></td><td>Secreto de 48 bytes para firmar access/refresh tokens</td></tr>
+        <tr><td><code>NEXT_PUBLIC_APP_URL</code></td><td><code>https://forogaming.vercel.app</code></td></tr>
+        <tr><td><code>APP_ENV</code></td><td><code>production</code> — activa SSL en el pool de PG y headers de seguridad</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Proceso de despliegue paso a paso</h3>
+  <ol>
+    <li><strong>Instalación de gh CLI</strong> — <code>winget install --id GitHub.cli</code></li>
+    <li><strong>Autenticación GitHub</strong> — <code>gh auth login</code> → Continue with GitHub (navegador)</li>
+    <li><strong>Inicialización del repositorio</strong> — <code>git init</code>, commit inicial (69 ficheros), push</li>
+    <li><strong>Creación del repo en GitHub</strong> — <code>gh repo create forogaming --public --source=. --push</code></li>
+    <li><strong>Neon</strong> — Proyecto <em>forogaming</em> creado manualmente en neon.tech; migraciones ejecutadas vía Node.js con <code>pg</code> Pool</li>
+    <li><strong>Vercel CLI</strong> — <code>npm i -g vercel</code> · <code>vercel login</code> (GitHub OAuth)</li>
+    <li><strong>Variables de entorno</strong> — <code>vercel env add DATABASE_URL production</code> (×4 variables)</li>
+    <li><strong>Deploy</strong> — <code>vercel --prod --yes</code>; build exitoso en 38 s, 27 rutas generadas</li>
+  </ol>
+
+  <h3>Fix aplicado durante el despliegue</h3>
+  <p>El build de producción falló por un error de TypeScript en <code>src/lib/db.ts</code>: el tipo genérico
+  <code>T</code> de la función <code>query&lt;T&gt;</code> no tenía la restricción requerida por la librería <code>pg</code>.</p>
+  <pre><span class="comment">// Antes (fallaba en producción)</span>
+export async function query&lt;<span class="keyword">T</span> = Record&lt;string, unknown&gt;&gt;(...)
+
+<span class="comment">// Después (correcto)</span>
+export async function query&lt;<span class="keyword">T</span> extends QueryResultRow = QueryResultRow&gt;(...)</pre>
+  <p>El fix se commiteó, se hizo push y Vercel desplegó automáticamente en el siguiente push.</p>
+
+  <h3>Panel de administración</h3>
+  <p>Se añadieron dos mejoras al panel de admin tras el despliegue inicial:</p>
+  <ul>
+    <li><strong>Catálogo de juegos</strong> (<code>/admin/games</code>) — CRUD completo: crear juego con slug automático, editar nombre/descripción/portada, listar con conteo de posts. Acceso restringido a rol <code>admin</code>.</li>
+    <li><strong>Enlace en la Navbar</strong> — El dropdown del usuario muestra "Panel de administración" en color indigo cuando <code>user.role === 'admin'</code>, enlazando a <code>/admin</code>.</li>
+  </ul>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Ruta</th><th>Descripción</th><th>Acceso</th></tr></thead>
+      <tbody>
+        <tr><td><code>/admin</code></td><td>Dashboard con métricas y accesos rápidos</td><td>Admin</td></tr>
+        <tr><td><code>/admin/games</code></td><td>Gestión del catálogo de juegos (CRUD)</td><td>Admin</td></tr>
+        <tr><td><code>/admin/users</code></td><td>Gestión de usuarios (ban/unban)</td><td>Admin</td></tr>
+        <tr><td><code>/admin/reports</code></td><td>Revisión de reportes de contenido</td><td>Admin</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Cuenta de administrador</h3>
+  <p>El usuario <strong>Nikode17</strong> tiene rol <code>admin</code> en la base de datos de producción (Neon).
+  El rol se asignó directamente vía SQL tras el registro en la web de producción:</p>
+  <pre>UPDATE users SET role = <span class="string">'admin'</span> WHERE username = <span class="string">'Nikode17'</span>;</pre>
+
+  <h3>Flujo CI/CD activo</h3>
+  <p>Cada <code>git push</code> a la rama <code>master</code> desencadena automáticamente un nuevo build y deploy
+  en Vercel. El tiempo medio de deploy es ~60 s. No se requiere ninguna acción manual.</p>
+
+  <br/>
+  <h3>Usuarios administradores</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Usuario</th><th>Rol</th></tr></thead>
+      <tbody>
+        <tr><td>Nikode17</td><td>admin</td></tr>
+        <tr><td>MuckMaster</td><td>admin</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Variables de entorno adicionales (Uploadthing + IGDB)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Variable</th><th>Descripción</th></tr></thead>
+      <tbody>
+        <tr><td><code>UPLOADTHING_TOKEN</code></td><td>Token JWT de la app Uploadthing (panel uploadthing.com)</td></tr>
+        <tr><td><code>TWITCH_CLIENT_ID</code></td><td>Client ID de la app Twitch para IGDB OAuth</td></tr>
+        <tr><td><code>TWITCH_CLIENT_SECRET</code></td><td>Client Secret de la app Twitch para IGDB OAuth</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="success-box" style="text-align:center;">
+    <strong>Forogaming v1.2.0 — en producción</strong><br/>
+    https://forogaming.vercel.app · GitHub: Nikode17/forogaming<br/>
+    Actualizado el 10 de abril de 2026
   </div>
 </div>
 

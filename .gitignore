@@ -32,3 +32,5 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 documentacion-proyecto.pdf
+
+.vercel
