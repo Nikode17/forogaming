@@ -105,7 +105,7 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         </div>
 
         {/* Avatar + actions row */}
-        <div className="px-6 -mt-12 mb-4 flex items-end justify-between gap-3">
+        <div className="px-6 -mt-12 mb-4 flex items-end justify-between gap-3 relative z-10">
           {/* Avatar */}
           <div className="ring-4 ring-gray-900 rounded-full shrink-0">
             {user.avatar_url ? (
