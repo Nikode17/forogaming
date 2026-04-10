@@ -11,6 +11,7 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [pendingFriends, setPendingFriends] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Polling de mensajes no leídos cada 10 segundos
@@ -24,6 +25,20 @@ export default function Navbar() {
     }
     check()
     const interval = setInterval(check, 10000)
+    return () => clearInterval(interval)
+  }, [accessToken])
+
+  // Polling de solicitudes de amistad pendientes cada 15 segundos
+  useEffect(() => {
+    if (!accessToken) return
+    const check = () => {
+      fetch('/api/friends/pending', { headers: { Authorization: `Bearer ${accessToken}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { count: number } | null) => { if (d) setPendingFriends(d.count) })
+        .catch(() => {})
+    }
+    check()
+    const interval = setInterval(check, 15000)
     return () => clearInterval(interval)
   }, [accessToken])
 
@@ -125,6 +140,18 @@ export default function Navbar() {
                     {unreadCount > 0 && (
                       <span className="bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                         {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    href="/friends"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center justify-between px-4 py-2 text-sm text-gray-200 hover:bg-gray-700"
+                  >
+                    Amigos
+                    {pendingFriends > 0 && (
+                      <span className="bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {pendingFriends > 9 ? '9+' : pendingFriends}
                       </span>
                     )}
                   </Link>
