@@ -95,8 +95,8 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         {/* Cover */}
         <div className={`relative h-40 bg-gradient-to-br ${coverGradient} overflow-hidden`}>
           {/* Decorative glows */}
-          <div className="absolute -right-6 -top-6 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute right-1/3 -bottom-4 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute right-4 top-4 w-48 h-48 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute right-1/3 bottom-2 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
           <div className="absolute left-8 top-4 w-24 h-24 bg-white/5 rounded-full blur-2xl pointer-events-none" />
           {/* Grid pattern overlay */}
           <div className="absolute inset-0 opacity-10"
