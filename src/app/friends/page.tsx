@@ -34,16 +34,22 @@ export default function FriendsPage() {
 
   const loadFriends = async () => {
     if (!accessToken) return
-    const res = await fetch('/api/friends', { headers: { Authorization: `Bearer ${accessToken}` } })
-    if (res.ok) {
-      const data = await res.json() as { friends: Friend[]; pending: PendingRequest[] }
-      setFriends(data.friends)
-      setPending(data.pending)
+    try {
+      const res = await fetch('/api/friends', { headers: { Authorization: `Bearer ${accessToken}` } })
+      if (res.ok) {
+        const data = await res.json() as { friends: Friend[]; pending: PendingRequest[] }
+        setFriends(data.friends)
+        setPending(data.pending)
+      }
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
-  useEffect(() => { loadFriends() }, [accessToken])
+  useEffect(() => {
+    if (isLoading || !accessToken) return
+    loadFriends()
+  }, [accessToken, isLoading])
 
   async function respond(requestId: string, action: 'accept' | 'reject') {
     await fetch('/api/friends/respond', {
