@@ -3,7 +3,6 @@ import type React from 'react'
 import type { PostCardProps } from '@/components/PostCard'
 import ProfileActions from '@/components/ProfileActions'
 import ProfileTabs from '@/components/ProfileTabs'
-import UserAvatar from '@/components/UserAvatar'
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
@@ -28,7 +27,6 @@ interface UserData {
   followers_count: number
   following_count: number
   friends_count: number
-  last_seen: string | null
 }
 
 interface UserResponse {
@@ -109,13 +107,19 @@ export default async function UserPage({ params }: { params: Promise<{ username:
         {/* Avatar + actions row */}
         <div className="px-6 -mt-12 mb-4 flex items-end justify-between gap-3 relative z-10">
           {/* Avatar */}
-          <UserAvatar
-            username={user.username}
-            avatarUrl={user.avatar_url}
-            lastSeen={user.last_seen}
-            size={96}
-            ringClass="ring-4 ring-gray-900"
-          />
+          <div className="ring-4 ring-gray-900 rounded-full shrink-0">
+            {user.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={user.username}
+                className="w-24 h-24 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-3xl font-bold text-white">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
 
           {/* Action buttons */}
           <div className="pb-1">

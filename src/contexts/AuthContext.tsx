@@ -57,18 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { restoreSession() }, [restoreSession])
 
-  // Heartbeat — actualizar last_seen cada 60 segundos
-  useEffect(() => {
-    if (!accessToken) return
-    const ping = () => fetch('/api/users/me/heartbeat', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}` },
-    }).catch(() => {})
-    ping()
-    const interval = setInterval(ping, 60000)
-    return () => clearInterval(interval)
-  }, [accessToken])
-
   const login = async (email: string, password: string) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',

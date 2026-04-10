@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
     other_id: string
     other_username: string
     other_avatar: string | null
-    other_last_seen: string | null
     last_body: string
     last_at: string
     unread: string
@@ -26,7 +25,6 @@ export async function GET(req: NextRequest) {
       u.id            AS other_id,
       u.username      AS other_username,
       u.avatar_url    AS other_avatar,
-      u.last_seen     AS other_last_seen,
       last_msg.body   AS last_body,
       last_msg.created_at AS last_at,
       COUNT(dm.id) FILTER (WHERE dm.read_at IS NULL AND dm.receiver_id = $1) AS unread
@@ -46,7 +44,7 @@ export async function GET(req: NextRequest) {
     LEFT JOIN direct_messages dm
       ON (dm.sender_id = $1 AND dm.receiver_id = convs.other_id)
       OR (dm.sender_id = convs.other_id AND dm.receiver_id = $1)
-    GROUP BY u.id, u.username, u.avatar_url, u.last_seen, last_msg.body, last_msg.created_at
+    GROUP BY u.id, u.username, u.avatar_url, last_msg.body, last_msg.created_at
     ORDER BY last_msg.created_at DESC
   `, [me.id])
 
