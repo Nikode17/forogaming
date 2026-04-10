@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
+import type React from 'react'
 import type { PostCardProps } from '@/components/PostCard'
-import FollowButton from '@/components/FollowButton'
+import ProfileActions from '@/components/ProfileActions'
 import ProfileTabs from '@/components/ProfileTabs'
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
@@ -122,18 +122,12 @@ export default async function UserPage({ params }: { params: Promise<{ username:
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2 pb-1">
-            <FollowButton
+          <div className="pb-1">
+            <ProfileActions
               username={user.username}
               initialFollowing={is_following}
               initialCount={user.followers_count}
             />
-            <Link
-              href={`/messages/${user.username}`}
-              className="px-4 py-2 text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg border border-gray-700 transition-colors"
-            >
-              Mensaje
-            </Link>
           </div>
         </div>
 
@@ -159,10 +153,10 @@ export default async function UserPage({ params }: { params: Promise<{ username:
 
           {/* Stat cards */}
           <div className="grid grid-cols-4 gap-3">
-            <StatCard value={post_count} label="Posts" icon="📝" />
-            <StatCard value={user.followers_count} label="Seguidores" icon="👥" />
-            <StatCard value={user.following_count} label="Siguiendo" icon="➕" />
-            <StatCard value={user.friends_count} label="Amigos" icon="🤝" />
+            <StatCard value={post_count} label="Posts" icon={<IconPost />} />
+            <StatCard value={user.followers_count} label="Seguidores" icon={<IconUsers />} />
+            <StatCard value={user.following_count} label="Siguiendo" icon={<IconFollow />} />
+            <StatCard value={user.friends_count} label="Amigos" icon={<IconFriends />} />
           </div>
         </div>
       </div>
@@ -177,12 +171,25 @@ export default async function UserPage({ params }: { params: Promise<{ username:
   )
 }
 
-function StatCard({ value, label, icon }: { value: number; label: string; icon: string }) {
+function StatCard({ value, label, icon }: { value: number; label: string; icon: React.ReactNode }) {
   return (
     <div className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-3 text-center">
-      <div className="text-base mb-0.5">{icon}</div>
+      <div className="flex justify-center mb-1.5 text-indigo-400">{icon}</div>
       <div className="text-xl font-bold text-gray-100">{value.toLocaleString('es-ES')}</div>
       <div className="text-xs text-gray-500 mt-0.5">{label}</div>
     </div>
   )
+}
+
+function IconPost() {
+  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+}
+function IconUsers() {
+  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+}
+function IconFollow() {
+  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+}
+function IconFriends() {
+  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
 }
