@@ -1,0 +1,62 @@
+'use client'
+
+import { useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import Link from 'next/link'
+
+interface Props {
+  username: string
+  initialFollowing: boolean
+  initialCount: number
+}
+
+export default function FollowButton({ username, initialFollowing, initialCount }: Props) {
+  const { user, accessToken } = useAuth()
+  const [following, setFollowing] = useState(initialFollowing)
+  const [count, setCount] = useState(initialCount)
+  const [loading, setLoading] = useState(false)
+
+  if (!user) {
+    return (
+      <Link
+        href="/login"
+        className="px-5 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors"
+      >
+        Seguir
+      </Link>
+    )
+  }
+
+  if (user.username === username) return null
+
+  async function toggle() {
+    setLoading(true)
+    try {
+      const method = following ? 'DELETE' : 'POST'
+      const res = await fetch(`/api/users/${username}/follow`, {
+        method,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (res.ok) {
+        setFollowing(!following)
+        setCount((c) => c + (following ? -1 : 1))
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={loading}
+      className={`px-5 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
+        following
+          ? 'bg-gray-700 hover:bg-red-900/50 hover:text-red-300 text-gray-200 border border-gray-600'
+          : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+      }`}
+    >
+      {loading ? '...' : following ? 'Siguiendo' : 'Seguir'}
+    </button>
+  )
+}

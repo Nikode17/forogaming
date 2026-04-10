@@ -6,10 +6,11 @@ function err(code: string, message: string, status: number) {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ username: string }> }
 ) {
   const { username } = await params
+  const viewerId = request.headers.get('x-user-id')
 
   const userResult = await query<{
     id: string
@@ -32,9 +33,24 @@ export async function GET(
 
   const user = userResult.rows[0]
 
+  // Followers / following counts
+  const [followersRes, followingRes] = await Promise.all([
+    query<{ count: string }>('SELECT COUNT(*) AS count FROM follows WHERE following_id = $1', [user.id]),
+    query<{ count: string }>('SELECT COUNT(*) AS count FROM follows WHERE follower_id = $1', [user.id]),
+  ])
+  const followers_count = parseInt(followersRes.rows[0].count, 10)
+  const following_count = parseInt(followingRes.rows[0].count, 10)
+
+  // ¿El viewer sigue a este usuario?
+  let is_following = false
+  if (viewerId && viewerId !== user.id) {
+    const f = await query('SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2', [viewerId, user.id])
+    is_following = (f.rowCount ?? 0) > 0
+  }
+
   // Si está baneado, devolver perfil sin posts
   if (user.is_banned) {
-    return NextResponse.json({ user, posts: [], post_count: 0 })
+    return NextResponse.json({ user: { ...user, followers_count, following_count }, posts: [], post_count: 0, is_following })
   }
 
   const postsResult = await query<{
@@ -64,8 +80,9 @@ export async function GET(
   )
 
   return NextResponse.json({
-    user,
+    user: { ...user, followers_count, following_count },
     posts: postsResult.rows,
     post_count: parseInt(countResult.rows[0].count, 10),
+    is_following,
   })
 }
