@@ -82,3 +82,50 @@ export async function searchIGDBGames(query: string, limit = 8): Promise<IGDBGam
 export function igdbCoverUrl(imageId: string, size: 'cover_big' | 'cover_small' | '720p' = 'cover_big'): string {
   return `https://images.igdb.com/igdb/image/upload/t_${size}/${imageId}.jpg`
 }
+
+export interface IGDBGameDetails {
+  id: number
+  name: string
+  slug: string
+  summary?: string
+  cover?: { image_id: string }
+  screenshots?: { image_id: string }[]
+  genres?: { name: string }[]
+  platforms?: { name: string }[]
+  involved_companies?: { developer: boolean; company: { name: string } }[]
+  first_release_date?: number
+  total_rating?: number
+  total_rating_count?: number
+}
+
+/**
+ * Obtiene datos enriquecidos de un juego por nombre exacto.
+ * Usado en la página de juego para mostrar info rica de IGDB.
+ */
+export async function getIGDBGameDetails(name: string): Promise<IGDBGameDetails | null> {
+  const token = await getAccessToken()
+  const safeName = name.replace(/"/g, '\\"')
+
+  const res = await fetch('https://api.igdb.com/v4/games', {
+    method: 'POST',
+    headers: {
+      'Client-ID': process.env.TWITCH_CLIENT_ID!,
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'text/plain',
+    },
+    body: `
+      fields name, slug, summary, cover.image_id,
+             screenshots.image_id, genres.name, platforms.name,
+             involved_companies.developer, involved_companies.company.name,
+             first_release_date, total_rating, total_rating_count;
+      where name = "${safeName}";
+      limit 1;
+    `,
+    next: { revalidate: 86400 }, // cachear 24h
+  } as RequestInit)
+
+  if (!res.ok) return null
+
+  const data = await res.json() as IGDBGameDetails[]
+  return data[0] ?? null
+}
