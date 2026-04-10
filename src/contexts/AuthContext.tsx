@@ -39,6 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           sub: string; username: string; role: AuthUser['role']
         }
         setUser({ id: payload.sub, username: payload.username, role: payload.role, email: '', avatar_url: null })
+        // Fetch perfil completo para obtener avatar_url (no está en el JWT)
+        const profileRes = await fetch('/api/users/me', {
+          headers: { Authorization: `Bearer ${data.accessToken}` },
+        })
+        if (profileRes.ok) {
+          const profile = await profileRes.json() as { avatar_url: string | null; email: string }
+          setUser(prev => prev ? { ...prev, avatar_url: profile.avatar_url, email: profile.email } : prev)
+        }
       }
     } catch {
       // No hay sesión activa
