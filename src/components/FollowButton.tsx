@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 
@@ -15,6 +15,17 @@ export default function FollowButton({ username, initialFollowing, initialCount 
   const [following, setFollowing] = useState(initialFollowing)
   const [count, setCount] = useState(initialCount)
   const [loading, setLoading] = useState(false)
+
+  // Verificar estado real desde el cliente (el server component no tiene JWT)
+  useEffect(() => {
+    if (!accessToken) return
+    fetch(`/api/users/${username}/follow`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { following: boolean } | null) => { if (d != null) setFollowing(d.following) })
+      .catch(() => {})
+  }, [accessToken, username])
 
   if (!user) {
     return (

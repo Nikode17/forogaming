@@ -44,9 +44,9 @@ export async function POST(req: NextRequest) {
 
   if (existing.rows[0]) {
     const { status, sender_id } = existing.rows[0]
-    if (status === 'accepted') return err('CONFLICT', 'Ya sois amigos', 409)
+    if (status === 'accepted') return err('ALREADY_FRIENDS', 'Ya sois amigos', 409)
     if (status === 'pending' && sender_id === me.id)
-      return err('CONFLICT', 'Ya enviaste una solicitud', 409)
+      return err('ALREADY_SENT', 'Ya enviaste una solicitud', 409)
     if (status === 'pending' && sender_id === targetId) {
       // El otro ya te envió solicitud — aceptar automáticamente
       await query(

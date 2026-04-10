@@ -72,8 +72,10 @@ export default function AddFriendModal({ onClose }: Props) {
       const data = await res.json() as { status?: string; error?: { code: string } }
       if (res.ok) {
         setStatuses(s => ({ ...s, [username]: data.status === 'accepted' ? 'already_friends' : 'sent' }))
-      } else if (data.error?.code === 'CONFLICT') {
+      } else if (data.error?.code === 'ALREADY_FRIENDS') {
         setStatuses(s => ({ ...s, [username]: 'already_friends' }))
+      } else if (data.error?.code === 'ALREADY_SENT') {
+        setStatuses(s => ({ ...s, [username]: 'sent' }))
       } else {
         setStatuses(s => ({ ...s, [username]: 'error' }))
       }

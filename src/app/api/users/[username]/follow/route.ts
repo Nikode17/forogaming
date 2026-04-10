@@ -12,6 +12,27 @@ function err(code: string, message: string, status: number) {
   return NextResponse.json({ error: { code, message } }, { status })
 }
 
+// GET /api/users/[username]/follow  → estado de seguimiento
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ username: string }> }
+) {
+  const me = getUser(req)
+  if (!me) return NextResponse.json({ following: false })
+
+  const { username } = await params
+  const target = await query<{ id: string }>(
+    'SELECT id FROM users WHERE username = $1', [username]
+  )
+  if (!target.rows[0]) return NextResponse.json({ following: false })
+
+  const f = await query(
+    'SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2',
+    [me.id, target.rows[0].id]
+  )
+  return NextResponse.json({ following: (f.rowCount ?? 0) > 0 })
+}
+
 // POST /api/users/[username]/follow  → seguir
 export async function POST(
   req: NextRequest,
