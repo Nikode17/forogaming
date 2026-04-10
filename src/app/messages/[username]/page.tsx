@@ -49,7 +49,11 @@ export default function ChatPage() {
     const data = await res.json() as { data: Message[] }
     if (data.data.length > 0) {
       if (since) {
-        setMessages(prev => [...prev, ...data.data])
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id))
+          const newMsgs = data.data.filter(m => !existingIds.has(m.id))
+          return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev
+        })
       } else {
         setMessages(data.data)
       }
