@@ -105,6 +105,21 @@ export default function Navbar() {
           ) : user ? (
             /* Usuario autenticado */
             <div className="relative" ref={dropdownRef}>
+              <Link
+                href="/messages"
+                className="relative flex items-center justify-center w-9 h-9 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-gray-200"
+                title="Mensajes"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-indigo-600 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="flex items-center gap-2 hover:bg-gray-800 rounded-lg px-2 py-1.5 transition-colors"
