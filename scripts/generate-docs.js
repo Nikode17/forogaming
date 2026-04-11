@@ -310,8 +310,8 @@ const html = `<!DOCTYPE html>
   <div class="cover-meta">
     <table>
       <tr><td>Documento</td><td>Documentación técnica del proyecto</td></tr>
-      <tr><td>Versión</td><td>1.2.0</td></tr>
-      <tr><td>Fecha</td><td>10 de abril de 2026</td></tr>
+      <tr><td>Versión</td><td>1.3.0</td></tr>
+      <tr><td>Fecha</td><td>11 de abril de 2026</td></tr>
       <tr><td>Estado</td><td>Producción · https://forogaming.vercel.app</td></tr>
       <tr><td>Stack</td><td>Next.js 16 · TypeScript · PostgreSQL (Neon) · Tailwind CSS</td></tr>
       <tr><td>Servicios</td><td>Vercel · Neon · Uploadthing · IGDB API</td></tr>
@@ -386,6 +386,9 @@ const html = `<!DOCTYPE html>
         <tr><td>Mensajería directa</td><td>Chat privado con polling cada 3 s, marca de leído (✓), badge de no leídos en Navbar</td><td>✅ Implementado</td></tr>
         <tr><td>Sistema de amigos</td><td>Solicitudes de amistad, aceptar/rechazar, lista de amigos, badge de solicitudes pendientes</td><td>✅ Implementado</td></tr>
         <tr><td>Configuración de perfil</td><td>Página /settings: cambiar avatar (Uploadthing) y bio</td><td>✅ Implementado</td></tr>
+        <tr><td>Perfil rediseñado</td><td>Cover con gradiente determinista, avatar superpuesto con ring, stat cards con SVG, tabs (Posts/Favoritos/Amigos)</td><td>✅ Implementado</td></tr>
+        <tr><td>Chat popup widget</td><td>Botón flotante estilo Facebook, lista de conversaciones, chat inline; móvil: bottom sheet full-width</td><td>✅ Implementado</td></tr>
+        <tr><td>Página de inicio mejorada</td><td>Stats de comunidad, CTA para invitados, strip de juegos más activos, carousel con juegos reales de la DB</td><td>✅ Implementado</td></tr>
       </tbody>
     </table>
   </div>
@@ -941,6 +944,16 @@ APP_ENV=development</pre>
     </table>
   </div>
 
+  <h3>Estadísticas — /api/stats</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge badge-get">GET</span></td><td><code>/api/stats</code></td><td>Contadores de comunidad: posts publicados, usuarios registrados, juegos catalogados</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <h3>Amigos — /api/friends</h3>
   <div class="table-wrap">
     <table>
@@ -1251,6 +1264,14 @@ images: {
   <p>El rate limiter actual usa memoria en proceso (sliding window). En Vercel serverless cada instancia tiene su propia memoria, por lo que el límite no es global. Para producción real migrar a Upstash Redis:</p>
   <pre>npm install @upstash/ratelimit @upstash/redis</pre>
 
+  <h3>Corrección 5 — Avatar del perfil oculto detrás del gradiente (z-index)</h3>
+  <p>El cover del perfil tiene <code>position: relative</code>, lo que en CSS lo sitúa por encima de elementos sin posicionamiento. El avatar row era estático, quedando enterrado detrás del gradiente cuando se solapaba con <code>-mt-12</code>.</p>
+  <p><strong>Fix:</strong> añadir <code>relative z-10</code> al div del avatar+acciones para que renderice por encima del cover.</p>
+
+  <h3>Corrección 6 — Página de amigos vacía en navegación cliente</h3>
+  <p>Al navegar a <code>/friends</code> sin recargar, la lista aparecía vacía aunque los amigos existían en la DB. El <code>useEffect</code> lanzaba el fetch antes de que el auth terminara de restaurarse, recibiendo respuesta vacía.</p>
+  <p><strong>Fix:</strong> añadir <code>isLoading</code> como dependencia del efecto y guardar con <code>try/finally</code> para que <code>setLoading(false)</code> siempre se ejecute.</p>
+
   <h3>Roadmap — próximas iteraciones</h3>
   <div class="table-wrap">
     <table>
@@ -1259,7 +1280,8 @@ images: {
         <tr><td>🟡 Media</td><td>Migrar rate limiter a Upstash Redis</td><td>Necesario al escalar a múltiples instancias serverless</td></tr>
         <tr><td>🟡 Media</td><td>Índice GIN para búsqueda full-text</td><td>Mejora rendimiento con alto volumen de posts</td></tr>
         <tr><td>🟡 Media</td><td>Tests unitarios e integración</td><td>Cobertura mínima objetivo 70%</td></tr>
-        <tr><td>🟡 Media</td><td>Notificaciones en tiempo real</td><td>WebSocket o SSE para reemplazar los pollings actuales</td></tr>
+        <tr><td>🟡 Media</td><td>Notificaciones in-app</td><td>Badge en navbar al recibir respuestas a posts/comentarios</td></tr>
+        <tr><td>🟡 Media</td><td>Paginación en perfil de usuario</td><td>Ahora solo muestra últimos 10 posts</td></tr>
         <tr><td>🟢 Baja</td><td>Estado de amistad en perfiles</td><td>Mostrar "Amigos" / "Solicitud enviada" en /user/:username</td></tr>
         <tr><td>🟢 Baja</td><td>i18n (internacionalización)</td><td>Actualmente en español; arquitectura preparada para múltiples idiomas</td></tr>
         <tr><td>🟢 Baja</td><td>CDN para assets estáticos</td><td>Configurar en next.config.ts remotePatterns</td></tr>
@@ -1288,7 +1310,7 @@ images: {
 
   <br/><br/>
   <div class="info-box" style="text-align:center;">
-    <strong>Forogaming v1.2.0</strong> · Documentación generada el 10 de abril de 2026<br/>
+    <strong>Forogaming v1.3.0</strong> · Documentación generada el 11 de abril de 2026<br/>
     Proyecto desarrollado íntegramente con Claude Code (Anthropic) · Next.js 16 + PostgreSQL (Neon) + Uploadthing + IGDB
   </div>
 </div>
@@ -1408,7 +1430,7 @@ export async function query&lt;<span class="keyword">T</span> extends QueryResul
   </div>
 
   <div class="success-box" style="text-align:center;">
-    <strong>Forogaming v1.2.0 — en producción</strong><br/>
+    <strong>Forogaming v1.3.0 — en producción</strong><br/>
     https://forogaming.vercel.app · GitHub: Nikode17/forogaming<br/>
     Actualizado el 10 de abril de 2026
   </div>
