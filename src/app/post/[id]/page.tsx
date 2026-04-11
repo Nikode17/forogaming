@@ -73,9 +73,9 @@ function timeAgo(date: string): string {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const data = await apiFetch<{ post: { title: string; body: string } }>(`/api/posts/${id}`)
-  if (!data) return { title: 'Post no encontrado — Forogaming' }
+  if (!data) return { title: 'Post no encontrado — Respawn' }
   return {
-    title: `${data.post.title} — Forogaming`,
+    title: `${data.post.title} — Respawn`,
     description: data.post.body.replace(/<[^>]*>/g, '').slice(0, 160),
   }
 }

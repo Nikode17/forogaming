@@ -23,7 +23,7 @@ async function fetchGames(): Promise<Game[]> {
 }
 
 export const metadata = {
-  title: 'Todos los juegos — Forogaming',
+  title: 'Todos los juegos — Respawn',
   description: 'Explora todos los juegos del foro.',
 }
 

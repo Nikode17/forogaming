@@ -64,10 +64,10 @@ function formatDate(date: string): string {
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
   const data = await apiFetch<UserResponse>(`/api/users/${username}`)
-  if (!data) return { title: 'Usuario no encontrado — Forogaming' }
+  if (!data) return { title: 'Usuario no encontrado — Respawn' }
   return {
-    title: `${data.user.username} — Forogaming`,
-    description: data.user.bio ?? `Perfil de ${data.user.username} en Forogaming.`,
+    title: `${data.user.username} — Respawn`,
+    description: data.user.bio ?? `Perfil de ${data.user.username} en Respawn.`,
   }
 }
 

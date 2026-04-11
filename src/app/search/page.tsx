@@ -33,9 +33,9 @@ export async function generateMetadata({
   searchParams: Promise<{ q?: string }>
 }) {
   const { q } = await searchParams
-  if (!q) return { title: 'Buscar — Forogaming' }
+  if (!q) return { title: 'Buscar — Respawn' }
   return {
-    title: `Resultados para "${q}" — Forogaming`,
+    title: `Resultados para "${q}" — Respawn`,
   }
 }
 
@@ -63,7 +63,7 @@ export default async function SearchPage({
               Que estas buscando?
             </h1>
             <p className="text-gray-400 mb-8 text-center max-w-md">
-              Busca guias, easter eggs, reviews y mas en la comunidad de Forogaming.
+              Busca guias, easter eggs, reviews y mas en la comunidad de Respawn.
             </p>
             <form action="/search" method="GET" className="w-full max-w-lg flex gap-2">
               <input

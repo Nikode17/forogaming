@@ -26,11 +26,11 @@ const categoryTabs = [
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const gameData = await fetchFromApi(`/api/games/${slug}`)
-  if (!gameData) return { title: 'Juego no encontrado — Forogaming' }
+  if (!gameData) return { title: 'Juego no encontrado — Respawn' }
   const game = gameData.data ?? gameData.game ?? gameData
   return {
-    title: `${game.name} — Forogaming`,
-    description: game.description ?? `Posts, guías y reviews de ${game.name} en Forogaming.`,
+    title: `${game.name} — Respawn`,
+    description: game.description ?? `Posts, guías y reviews de ${game.name} en Respawn.`,
   }
 }
 

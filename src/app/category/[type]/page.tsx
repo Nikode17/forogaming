@@ -46,10 +46,10 @@ interface PostsResponse {
 
 export async function generateMetadata({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params
-  if (!(type in CATEGORIES)) return { title: 'Categoria no encontrada — Forogaming' }
+  if (!(type in CATEGORIES)) return { title: 'Categoria no encontrada — Respawn' }
   const cat = CATEGORIES[type as ValidCategory]
   return {
-    title: `${cat.label} — Forogaming`,
+    title: `${cat.label} — Respawn`,
     description: cat.description,
   }
 }

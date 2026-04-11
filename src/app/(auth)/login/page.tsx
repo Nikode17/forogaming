@@ -42,7 +42,7 @@ export default function LoginPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-white mb-2">Iniciar sesion</h1>
-            <p className="text-sm text-gray-400">Bienvenido de vuelta a Forogaming</p>
+            <p className="text-sm text-gray-400">Bienvenido de vuelta a Respawn</p>
           </div>
 
           {error && (

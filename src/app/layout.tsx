@@ -3,9 +3,10 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import Navbar from '@/components/Navbar'
 import ChatWidget from '@/components/ChatWidget'
+import Footer from '@/components/Footer'
 
 export const metadata: Metadata = {
-  title: 'Forogaming — Guías, Easter Eggs & Reviews',
+  title: 'Respawn — Guías, Easter Eggs & Reviews',
   description: 'Comunidad de videojuegos: guías paso a paso, easter eggs y reviews',
 }
 
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AuthProvider>
           <Navbar />
           <main>{children}</main>
+          <Footer />
           <ChatWidget />
         </AuthProvider>
       </body>
