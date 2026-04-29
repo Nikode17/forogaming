@@ -82,18 +82,30 @@ async function upstashLimit(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Función unificada: usa Upstash si está disponible, sino memoria
+// Función unificada: usa Upstash si está disponible, sino memoria.
+// Si Upstash falla (DB borrada, token caducado, red caída...), abrimos un
+// circuit breaker durante 60s y servimos desde memoria para no tumbar el
+// endpoint con un 500.
 // ─────────────────────────────────────────────────────────────────────────────
+let upstashCircuitOpenUntil = 0
+const CIRCUIT_COOLDOWN_MS = 60_000
+
 async function checkLimit(
   name: string,
   identifier: string,
   limit: number,
   windowSeconds: number
 ): Promise<RateLimitResult> {
-  if (hasUpstash()) {
-    return upstashLimit(name, identifier, limit, windowSeconds)
+  const memKey = `${name}:${identifier}`
+  if (hasUpstash() && Date.now() >= upstashCircuitOpenUntil) {
+    try {
+      return await upstashLimit(name, identifier, limit, windowSeconds)
+    } catch (err) {
+      upstashCircuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS
+      console.error('[ratelimit] Upstash falló, fallback a memoria por 60s:', err)
+    }
   }
-  return memLimit(`${name}:${identifier}`, limit, windowSeconds * 1000)
+  return memLimit(memKey, limit, windowSeconds * 1000)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

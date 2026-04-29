@@ -95,9 +95,9 @@ export default function SubmitPage() {
           steps: form.category === 'guide' ? form.steps : [],
         }),
       })
-      const data = (await res.json()) as { post?: { id: string }; error?: { message: string } }
-      if (res.ok && data.post) {
-        router.push(`/post/${data.post.id}`)
+      const data = (await res.json()) as { data?: { id: string }; error?: { message: string } }
+      if (res.ok && data.data) {
+        router.push(`/post/${data.data.id}`)
       } else {
         setError(data.error?.message ?? 'Error al publicar')
       }
