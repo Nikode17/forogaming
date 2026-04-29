@@ -18,26 +18,27 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> 
   }
 }
 
+interface MediaItem {
+  id: string
+  type: string
+  url: string
+  position: number
+}
+
 interface PostData {
   id: string
   title: string
   body: string
   category: string
   author: { username: string; avatar_url: string | null } | null
-  game: { name: string; slug: string } | null
+  game: { id: string; name: string; slug: string } | null
   upvotes: number
   downvotes: number
   comment_count: number
   view_count: number
   created_at: string
-}
-
-interface MediaItem {
-  id: string
-  media_type: string
-  url: string
-  alt_text: string | null
-  position: number
+  media: MediaItem[]
+  steps: StepItem[]
 }
 
 interface StepItem {
@@ -72,11 +73,11 @@ function timeAgo(date: string): string {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const data = await apiFetch<{ post: { title: string; body: string } }>(`/api/posts/${id}`)
-  if (!data) return { title: 'Post no encontrado — Respawn' }
+  const data = await apiFetch<{ data: { title: string; body: string } }>(`/api/posts/${id}`)
+  if (!data?.data) return { title: 'Post no encontrado — Respawn' }
   return {
-    title: `${data.post.title} — Respawn`,
-    description: data.post.body.replace(/<[^>]*>/g, '').slice(0, 160),
+    title: `${data.data.title} — Respawn`,
+    description: data.data.body.replace(/<[^>]*>/g, '').slice(0, 160),
   }
 }
 
@@ -88,20 +89,22 @@ export default async function PostPage({
   const { id } = await params
 
   const [postData, commentsData, gamesData] = await Promise.all([
-    apiFetch<{ post: PostData; media: MediaItem[]; steps: StepItem[] }>(`/api/posts/${id}`),
+    apiFetch<{ data: PostData }>(`/api/posts/${id}`),
     apiFetch<{ data: CommentNode[] }>(`/api/posts/${id}/comments`),
     apiFetch<{ data: GameItem[] }>('/api/games'),
   ])
 
-  if (!postData) notFound()
+  if (!postData?.data) notFound()
 
-  const { post, media, steps } = postData
+  const post = postData.data
+  const media = post.media ?? []
+  const steps = post.steps ?? []
   const comments = commentsData?.data ?? []
   const games = gamesData?.data ?? []
 
   const style = categoryStyles[post.category] ?? categoryStyles.general
-  const images = media.filter((m) => m.media_type === 'image')
-  const videoEmbeds = media.filter((m) => m.media_type === 'video_embed')
+  const images = media.filter((m) => m.type === 'image')
+  const videoEmbeds = media.filter((m) => m.type === 'video_embed')
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
@@ -191,7 +194,7 @@ export default async function PostPage({
                 <img
                   key={img.id}
                   src={img.url}
-                  alt={img.alt_text ?? ''}
+                  alt=""
                   className="w-full rounded-lg max-h-[600px] object-contain bg-gray-950"
                 />
               ))}
