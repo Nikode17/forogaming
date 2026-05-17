@@ -79,7 +79,7 @@ export default async function GamePage({
   const postCount = pagination.total
 
   return (
-    <main>
+    <>
       {/* ── HERO ── */}
       <div className="relative w-full overflow-hidden">
         {/* Fondo: screenshot desenfocado o color sólido */}
@@ -200,9 +200,7 @@ export default async function GamePage({
 
       {/* ── POSTS ── */}
       <div className="flex gap-6">
-        <div className="hidden lg:block">
-          <Sidebar games={games} />
-        </div>
+        <Sidebar games={games} />
 
         <div className="flex-1 min-w-0">
           <div className="max-w-3xl mx-auto px-4 py-6">
@@ -242,6 +240,6 @@ export default async function GamePage({
           </div>
         </div>
       </div>
-    </main>
+    </>
   )
 }
