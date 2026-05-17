@@ -78,44 +78,46 @@ export default async function CategoryPage({
   const games = gamesData?.data ?? []
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+    <div className="flex gap-6">
       {/* Sidebar */}
       <div className="hidden lg:block">
         <Sidebar games={games} />
       </div>
 
       {/* Contenido principal */}
-      <main className="flex-1 min-w-0">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-100 mb-1">{catInfo.label}</h1>
-          <p className="text-sm text-gray-400">{catInfo.description}</p>
-        </div>
+      <div className="flex-1 min-w-0">
+        <main className="max-w-3xl mx-auto px-4 py-6">
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-100 mb-1">{catInfo.label}</h1>
+            <p className="text-sm text-gray-400">{catInfo.description}</p>
+          </div>
 
-        {/* Tabs de ordenacion */}
-        <div className="flex items-center gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-lg p-1 w-fit">
-          {SORT_OPTIONS.map((opt) => (
-            <Link
-              key={opt.value}
-              href={`/category/${type}?sort=${opt.value}&page=1`}
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                sort === opt.value
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
-              }`}
-            >
-              {opt.label}
-            </Link>
-          ))}
-        </div>
+          {/* Tabs de ordenacion */}
+          <div className="flex items-center gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-lg p-1 w-fit">
+            {SORT_OPTIONS.map((opt) => (
+              <Link
+                key={opt.value}
+                href={`/category/${type}?sort=${opt.value}&page=1`}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  sort === opt.value
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                }`}
+              >
+                {opt.label}
+              </Link>
+            ))}
+          </div>
 
-        {/* Feed */}
-        <Feed
-          posts={posts}
-          pagination={pagination}
-          baseUrl={`/category/${type}?sort=${sort}&page=`}
-        />
-      </main>
+          {/* Feed */}
+          <Feed
+            posts={posts}
+            pagination={pagination}
+            baseUrl={`/category/${type}?sort=${sort}&page=`}
+          />
+        </main>
+      </div>
     </div>
   )
 }
