@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Reserva el hueco del scrollbar siempre: evita que el contenido se desplace
+   horizontalmente entre páginas con y sin scroll vertical (p. ej. home vs
+   detalle de post). */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* TODO: Definir paleta de colores definitiva con el equipo de diseño */
 
 :root {
