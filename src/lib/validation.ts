@@ -197,6 +197,7 @@ export const PostsQuerySchema = PaginationSchema.extend({
   game: z.string().optional(),
   category: z.enum(['guide', 'easter-egg', 'review', 'general']).optional(),
   sort: z.enum(['new', 'top', 'trending']).default('new'),
+  q: z.string().trim().min(1).max(200).optional(),
 })
 
 export const SearchQuerySchema = z.object({

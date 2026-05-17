@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       sort: url.searchParams.get('sort') ?? undefined,
       page: url.searchParams.get('page') ?? undefined,
       limit: url.searchParams.get('limit') ?? undefined,
+      q: url.searchParams.get('q') ?? undefined,
     }
 
     const parsed = PostsQuerySchema.safeParse(rawParams)
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { game, category, sort, page, limit } = parsed.data
+    const { game, category, sort, page, limit, q } = parsed.data
     const offset = (page - 1) * limit
 
     const conditions: string[] = ['p.is_deleted = FALSE', 'p.is_published = TRUE']
@@ -49,6 +50,12 @@ export async function GET(request: NextRequest) {
     if (category) {
       conditions.push(`p.category = $${paramIndex}`)
       params.push(category)
+      paramIndex++
+    }
+
+    if (q) {
+      conditions.push(`(p.title ILIKE $${paramIndex} OR p.body ILIKE $${paramIndex})`)
+      params.push(`%${q}%`)
       paramIndex++
     }
 

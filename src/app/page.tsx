@@ -1,129 +1,105 @@
 import Link from 'next/link'
 import Feed from '@/components/Feed'
 import Sidebar from '@/components/Sidebar'
-import HeroCarousel from '@/components/HeroCarousel'
-import GamesStrip from '@/components/GamesStrip'
 import CommunityStats from '@/components/CommunityStats'
 import GuestCTA from '@/components/GuestCTA'
 import { serverApiFetch } from '@/lib/server-auth'
 
-// Responses se mantienen sin tipar estrictamente — el código consumidor del
-// archivo asume shapes implícitos y narrowing con optional chaining; tipar
-// rígidamente aquí obligaría a un refactor mayor fuera del scope de este bloque.
+// El feed y el listado de juegos vienen sin tipar estrictamente porque el código
+// consumidor (Feed, Sidebar, etc.) asume shapes implícitos. Refactor a tipos
+// estrictos sería un cambio aparte fuera del scope del layout.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ApiAny = any
 
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; sort?: string }>
+  searchParams: Promise<{
+    page?: string
+    sort?: string
+    q?: string
+    category?: string
+    game?: string
+  }>
 }) {
-  const { page = '1', sort = 'new' } = await searchParams
+  const sp = await searchParams
+  const page = sp.page ?? '1'
+  const sort = sp.sort ?? 'new'
 
-  const [postsData, trendingData, gamesData, statsData] = await Promise.all([
-    serverApiFetch<ApiAny>(`/api/posts?sort=${sort}&page=${page}&limit=20`, { next: { revalidate: 60 } }),
-    serverApiFetch<ApiAny>('/api/posts/trending', { next: { revalidate: 60 } }),
+  // Construir la URL del fetch al endpoint preservando todos los filtros
+  const apiQs = new URLSearchParams()
+  apiQs.set('sort', sort)
+  apiQs.set('page', page)
+  apiQs.set('limit', '20')
+  if (sp.q?.trim())        apiQs.set('q', sp.q.trim())
+  if (sp.category)         apiQs.set('category', sp.category)
+  if (sp.game)             apiQs.set('game', sp.game)
+
+  const [postsData, gamesData, statsData] = await Promise.all([
+    serverApiFetch<ApiAny>(`/api/posts?${apiQs.toString()}`, { next: { revalidate: 60 } }),
     serverApiFetch<ApiAny>('/api/games?limit=100', { next: { revalidate: 60 } }),
     serverApiFetch<ApiAny>('/api/stats', { next: { revalidate: 60 } }),
   ])
 
   const posts      = postsData?.data ?? []
   const pagination = postsData?.pagination ?? { page: Number(page), limit: 20, total: 0, totalPages: 1 }
-  const trending   = trendingData?.data ?? []
   const allGames   = Array.isArray(gamesData?.data) ? gamesData.data : []
   const stats      = statsData ?? { post_count: 0, user_count: 0, game_count: 0 }
 
-  // Top games by post count for the carousel and strip
+  // Top juegos por post_count para la sidebar
   const topGames = [...allGames]
     .sort((a: { post_count: number }, b: { post_count: number }) => b.post_count - a.post_count)
 
-  const sortTabs = [
-    { label: 'Nuevo', value: 'new' },
-    { label: 'Top', value: 'top' },
-    { label: 'Trending', value: 'trending' },
-  ]
+  // baseUrl de paginación: preserva todos los filtros activos
+  const paginationQs = new URLSearchParams()
+  paginationQs.set('sort', sort)
+  if (sp.q?.trim())  paginationQs.set('q', sp.q.trim())
+  if (sp.category)   paginationQs.set('category', sp.category)
+  if (sp.game)       paginationQs.set('game', sp.game)
+  const baseUrl = `/?${paginationQs.toString()}${paginationQs.toString() ? '&' : ''}page=`
+
+  // Etiqueta del filtro activo para feedback visual
+  const activeGameObj = sp.game ? topGames.find((g: { slug: string }) => g.slug === sp.game) : null
+  const activeFilters: string[] = []
+  if (sp.q?.trim())  activeFilters.push(`"${sp.q.trim()}"`)
+  if (sp.category)   activeFilters.push(sp.category)
+  if (activeGameObj) activeFilters.push(activeGameObj.name)
 
   return (
-    <main>
-      {/* Hero carousel con juegos reales */}
-      <HeroCarousel games={topGames} />
+    <div className="flex">
+      <Sidebar games={topGames} />
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="flex-1 min-w-0">
+        <div className="max-w-3xl mx-auto px-4 py-6">
+          {/* Stats + Guest CTA */}
+          <CommunityStats
+            postCount={stats.post_count}
+            userCount={stats.user_count}
+            gameCount={stats.game_count}
+          />
+          <GuestCTA />
 
-        {/* Stats de la comunidad */}
-        <CommunityStats
-          postCount={stats.post_count}
-          userCount={stats.user_count}
-          gameCount={stats.game_count}
-        />
-
-        {/* CTA para usuarios no registrados (client component) */}
-        <GuestCTA />
-
-        {/* Juegos más activos */}
-        <GamesStrip games={topGames} />
-
-        {/* Trending bar */}
-        {Array.isArray(trending) && trending.length > 0 && (
-          <div className="mb-6 bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-indigo-900/40 border border-indigo-800/40 rounded-lg p-4">
-            <h2 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-              Trending
-            </h2>
-            <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-thin">
-              {trending.slice(0, 5).map((post: { id: string; title: string; upvotes: number; downvotes: number; game?: { name: string } | null }, i: number) => (
-                <Link
-                  key={post.id}
-                  href={`/post/${post.id}`}
-                  className="flex-shrink-0 flex items-start gap-3 min-w-[250px] max-w-[320px] p-3 bg-gray-900/60 border border-gray-800 rounded-lg hover:border-indigo-600/50 transition-colors"
-                >
-                  <span className="text-2xl font-black text-indigo-500/60">{i + 1}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-200 line-clamp-2">{post.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {post.game?.name ?? 'General'} &middot; {post.upvotes - post.downvotes} puntos
-                    </p>
-                  </div>
-                </Link>
+          {/* Indicador de filtros activos */}
+          {activeFilters.length > 0 && (
+            <div className="mb-4 flex items-center gap-2 flex-wrap text-sm">
+              <span className="text-gray-500">Filtros:</span>
+              {activeFilters.map((f, i) => (
+                <span key={i} className="bg-indigo-600/20 text-indigo-300 px-2 py-0.5 rounded">
+                  {f}
+                </span>
               ))}
+              <Link
+                href="/"
+                className="text-xs text-gray-500 hover:text-white underline-offset-2 hover:underline"
+              >
+                limpiar
+              </Link>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Main layout */}
-        <div className="flex gap-6">
-          <div className="hidden lg:block">
-            <Sidebar games={allGames} />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            {/* Sort tabs */}
-            <div className="flex items-center gap-1 mb-4 bg-gray-900 border border-gray-800 rounded-lg p-1">
-              {sortTabs.map((tab) => (
-                <Link
-                  key={tab.value}
-                  href={`/?sort=${tab.value}`}
-                  className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                    sort === tab.value
-                      ? 'bg-indigo-600 text-white'
-                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  }`}
-                >
-                  {tab.label}
-                </Link>
-              ))}
-            </div>
-
-            <Feed
-              posts={posts}
-              pagination={pagination}
-              baseUrl={`/?sort=${sort}&page=`}
-            />
-          </div>
+          <Feed posts={posts} pagination={pagination} baseUrl={baseUrl} />
         </div>
       </div>
-    </main>
+    </div>
   )
 }
