@@ -657,6 +657,188 @@ detallada con fechas y commits, ver `JOURNAL.md`. Para cheatsheet operativa, ver
 - `ALTER TYPE ... ADD VALUE` siempre en migración separada (Postgres no permite usar el valor recién añadido en la misma tx).
 - Runner aplica en transacción por archivo y registra en `schema_migrations`.
 
+### 9.3.1 Diagrama ER actualizado
+
+A continuación, el diagrama de entidad-relación que refleja el estado real del schema
+en producción tras aplicar todas las migraciones (001 a 006).
+
+```mermaid
+erDiagram
+    users ||--o{ posts : "author_id"
+    users ||--o{ comments : "author_id"
+    users ||--o{ votes : "user_id"
+    users ||--o{ likes : "user_id"
+    users ||--o{ favorites : "user_id"
+    users ||--o{ reports : "reporter_id"
+    users ||--o{ friend_requests : "sender_id"
+    users ||--o{ friend_requests : "receiver_id"
+    users ||--o{ direct_messages : "sender_id"
+    users ||--o{ direct_messages : "receiver_id"
+    users ||--o{ user_blocks : "blocker_id"
+    users ||--o{ user_blocks : "blocked_id"
+    users ||--o{ follows : "follower_id"
+    users ||--o{ follows : "following_id"
+
+    games ||--o{ posts : "game_id"
+
+    posts ||--o{ post_media : "post_id CASCADE"
+    posts ||--o{ post_steps : "post_id CASCADE"
+    posts ||--o{ comments : "post_id CASCADE"
+    posts ||--o{ favorites : "post_id"
+
+    comments ||--o{ comments : "parent_id"
+
+    users {
+        uuid id PK
+        string username UK
+        string email UK
+        string password_hash
+        enum role
+        string avatar_url
+        bool is_banned
+        timestamp last_seen
+        timestamp created_at
+    }
+
+    games {
+        uuid id PK
+        string name
+        string slug UK
+        text cover_url
+        text description
+        timestamp created_at
+    }
+
+    posts {
+        uuid id PK
+        string title
+        text body
+        enum category
+        uuid game_id FK
+        uuid author_id FK
+        bool is_published
+        bool is_deleted
+        int view_count
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    post_media {
+        uuid id PK
+        uuid post_id FK
+        enum type
+        text url
+        int position
+        timestamp created_at
+    }
+
+    post_steps {
+        uuid id PK
+        uuid post_id FK
+        int step_num
+        string title
+        text body
+        text image_url
+    }
+
+    comments {
+        uuid id PK
+        uuid post_id FK
+        uuid author_id FK
+        uuid parent_id FK
+        text body
+        bool is_deleted
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    votes {
+        uuid id PK
+        uuid user_id FK
+        enum target_type
+        uuid target_id
+        int value
+    }
+
+    likes {
+        uuid id PK
+        uuid user_id FK
+        enum target_type
+        uuid target_id
+    }
+
+    favorites {
+        uuid id PK
+        uuid user_id FK
+        uuid post_id FK
+        timestamp created_at
+    }
+
+    friend_requests {
+        uuid id PK
+        uuid sender_id FK
+        uuid receiver_id FK
+        enum status
+        timestamp created_at
+    }
+
+    direct_messages {
+        uuid id PK
+        uuid sender_id FK
+        uuid receiver_id FK
+        text body
+        timestamp read_at
+        timestamp created_at
+    }
+
+    user_blocks {
+        uuid id PK
+        uuid blocker_id FK
+        uuid blocked_id FK
+        timestamp created_at
+    }
+
+    follows {
+        uuid follower_id PK
+        uuid following_id PK
+        timestamp created_at
+    }
+
+    reports {
+        uuid id PK
+        uuid reporter_id FK
+        enum target_type
+        uuid target_id
+        text reason
+        text description
+        enum status
+        timestamp resolved_at
+        uuid resolved_by FK
+        timestamp updated_at
+        timestamp created_at
+    }
+
+    schema_migrations {
+        string filename PK
+        timestamp applied_at
+    }
+
+    revoked_tokens {
+        string jti PK
+        timestamp expires_at
+        timestamp revoked_at
+    }
+```
+
+**Notas:**
+- **PK** = Primary Key · **FK** = Foreign Key · **UK** = Unique Key.
+- `votes`, `likes`: pseudo-polimórficas — la columna `target_type` discrimina si `target_id` apunta a `posts.id` o `comments.id` (sin FK formal por ese motivo).
+- `follows`: PK compuesta `(follower_id, following_id)`, sin columna `id` propia.
+- `user_blocks`, `friend_requests`: doble relación con `users` (dos roles por fila); UNIQUE constraint para evitar duplicados.
+- `reports`: `target_id` polimórfico según `target_type` (`'post'|'comment'|'user'|'message'`); sin FK formal.
+- Eliminaciones en cascada `ON DELETE CASCADE`: `post_media`, `post_steps`, `comments` (cuando se borra el post); `user_blocks` (cuando se borra cualquiera de los dos users).
+- `schema_migrations` y `revoked_tokens` son tablas técnicas (no de dominio).
+
 ### 9.4 Endpoints API actuales
 
 Inventario real (cada uno expone los métodos indicados):
