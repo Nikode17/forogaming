@@ -98,14 +98,15 @@ export default async function PostPage({
   const videoEmbeds = media.filter((m) => m.type === 'video_embed')
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+    <div className="flex gap-6">
       {/* Sidebar */}
       <div className="hidden lg:block">
         <Sidebar games={games} />
       </div>
 
       {/* Contenido principal */}
-      <main className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0">
+        <main className="max-w-4xl mx-auto px-4 py-6">
         {/* Breadcrumb */}
         <nav className="flex items-center gap-2 text-sm text-gray-500 mb-4">
           <Link href="/" className="hover:text-indigo-400 transition-colors">
@@ -268,7 +269,8 @@ export default async function PostPage({
 
           <CommentTree comments={comments} postId={post.id} />
         </section>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
