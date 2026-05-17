@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useSidebar } from '@/contexts/SidebarContext'
+import SidebarUserZone from '@/components/SidebarUserZone'
 
 interface SidebarGame {
   id: string
@@ -38,6 +39,7 @@ const SORT_OPTIONS: { label: string; value: string }[] = [
 ]
 
 const STORAGE_KEY = 'sidebar-collapsed'
+const GAMES_OPEN_KEY = 'respawn.sidebar.games-open'
 const DEBOUNCE_MS = 300
 
 export default function Sidebar({ games = [] }: SidebarProps) {
@@ -47,6 +49,7 @@ export default function Sidebar({ games = [] }: SidebarProps) {
   const { mobileOpen, closeMobile } = useSidebar()
 
   const [collapsed, setCollapsed] = useState(false)
+  const [gamesOpen, setGamesOpen] = useState(true)
   const [hydrated, setHydrated] = useState(false)
   const [searchValue, setSearchValue] = useState(searchParams.get('q') ?? '')
   const searchInputRef = useRef<HTMLInputElement | null>(null)
@@ -56,6 +59,8 @@ export default function Sidebar({ games = [] }: SidebarProps) {
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored === '1') setCollapsed(true)
+    const storedGames = localStorage.getItem(GAMES_OPEN_KEY)
+    if (storedGames === '0') setGamesOpen(false)
     setHydrated(true)
   }, [])
 
@@ -63,6 +68,11 @@ export default function Sidebar({ games = [] }: SidebarProps) {
     if (!hydrated) return
     localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0')
   }, [collapsed, hydrated])
+
+  useEffect(() => {
+    if (!hydrated) return
+    localStorage.setItem(GAMES_OPEN_KEY, gamesOpen ? '1' : '0')
+  }, [gamesOpen, hydrated])
 
   // Sync del search input cuando el query param cambia externamente (ej. navegación)
   useEffect(() => {
@@ -189,6 +199,12 @@ export default function Sidebar({ games = [] }: SidebarProps) {
           )}
         </div>
 
+        {/* USER ZONE (solo si hay sesión) — inserta antes de CATEGORÍAS */}
+        <SidebarUserZone
+          isCollapsed={!isExpanded}
+          onNavigate={isMobile ? closeMobile : undefined}
+        />
+
         {/* CATEGORÍAS */}
         <nav className="p-3 border-b border-gray-800 shrink-0">
           {isExpanded && (
@@ -221,53 +237,69 @@ export default function Sidebar({ games = [] }: SidebarProps) {
           </ul>
         </nav>
 
-        {/* JUEGOS POPULARES */}
+        {/* JUEGOS POPULARES (collapsible cuando isExpanded) */}
         <nav className="p-3 flex-1 min-h-0">
           {isExpanded && (
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">
-              Juegos populares
-            </h3>
-          )}
-          <ul className="space-y-0.5">
-            {games.slice(0, 10).map((game) => {
-              const active = activeGame === game.slug
-              return (
-                <li key={game.id}>
-                  <Link
-                    href={buildHref((p) => p.set('game', game.slug))}
-                    onClick={isMobile ? closeMobile : undefined}
-                    title={isExpanded ? undefined : `${game.name} (${game.post_count})`}
-                    className={`flex items-center gap-2 ${isExpanded ? 'px-2' : 'px-0 justify-center'} py-1.5 text-sm rounded-md transition-colors ${
-                      active ? 'bg-indigo-600/20 text-indigo-300' : 'text-gray-300 hover:text-white hover:bg-gray-800'
-                    }`}
-                  >
-                    {game.cover_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={game.cover_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
-                    ) : (
-                      <div className="w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-[10px] text-gray-400 shrink-0">
-                        🎮
-                      </div>
-                    )}
-                    {isExpanded && (
-                      <>
-                        <span className="truncate flex-1">{game.name}</span>
-                        <span className="text-[10px] text-gray-500 tabular-nums">{game.post_count}</span>
-                      </>
-                    )}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
-          {isExpanded && games.length > 0 && (
-            <Link
-              href="/games"
-              onClick={isMobile ? closeMobile : undefined}
-              className="block mt-3 px-3 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+            <button
+              type="button"
+              onClick={() => setGamesOpen((v) => !v)}
+              aria-expanded={gamesOpen}
+              className="w-full flex items-center justify-between mb-2 px-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
             >
-              Ver todos los juegos →
-            </Link>
+              <span>Juegos populares</span>
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                className={`transition-transform duration-200 ${gamesOpen ? 'rotate-180' : ''}`}
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
+          {(!isExpanded || gamesOpen) && (
+            <>
+              <ul className="space-y-0.5">
+                {games.slice(0, 10).map((game) => {
+                  const active = activeGame === game.slug
+                  return (
+                    <li key={game.id}>
+                      <Link
+                        href={buildHref((p) => p.set('game', game.slug))}
+                        onClick={isMobile ? closeMobile : undefined}
+                        title={isExpanded ? undefined : `${game.name} (${game.post_count})`}
+                        className={`flex items-center gap-2 ${isExpanded ? 'px-2' : 'px-0 justify-center'} py-1.5 text-sm rounded-md transition-colors ${
+                          active ? 'bg-indigo-600/20 text-indigo-300' : 'text-gray-300 hover:text-white hover:bg-gray-800'
+                        }`}
+                      >
+                        {game.cover_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={game.cover_url} alt="" className="w-6 h-6 rounded object-cover shrink-0" />
+                        ) : (
+                          <div className="w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-[10px] text-gray-400 shrink-0">
+                            🎮
+                          </div>
+                        )}
+                        {isExpanded && (
+                          <>
+                            <span className="truncate flex-1">{game.name}</span>
+                            <span className="text-[10px] text-gray-500 tabular-nums">{game.post_count}</span>
+                          </>
+                        )}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+              {isExpanded && games.length > 0 && (
+                <Link
+                  href="/games"
+                  onClick={isMobile ? closeMobile : undefined}
+                  className="block mt-3 px-3 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                >
+                  Ver todos los juegos →
+                </Link>
+              )}
+            </>
           )}
         </nav>
 
