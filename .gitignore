@@ -37,3 +37,15 @@ documentacion-proyecto.pdf
 
 .env.prod-temp
 .claude/
+
+# Documentación académica local (no se versiona en el repo público)
+Respawn_SDD_*.docx
+
+# Scripts auxiliares de generación de docs académicos
+scripts/build-docx.py
+scripts/dump-parcial.py
+scripts/gen-secciones-nuevas.py
+scripts/validate-docx.py
+
+# Archivos basura por errores de shell (caracteres no imprimibles)
+tr*next*
