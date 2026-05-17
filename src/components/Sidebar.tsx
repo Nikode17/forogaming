@@ -258,7 +258,7 @@ export default function Sidebar({ games = [] }: SidebarProps) {
               </svg>
             </button>
           )}
-          {(!isExpanded || gamesOpen) && (
+          {gamesOpen && (
             <>
               <ul className="space-y-0.5">
                 {games.slice(0, 10).map((game) => {
@@ -330,15 +330,24 @@ export default function Sidebar({ games = [] }: SidebarProps) {
 
   return (
     <>
-      {/* DESKTOP — sticky, persistente */}
-      <aside
-        className={`hidden lg:flex flex-col sticky top-14 self-start bg-gray-900 border-r border-gray-800 transition-[width] duration-200 ${
+      {/* DESKTOP — wrapper de columna estirable + aside sticky dentro.
+          El wrapper crece como flex-item para igualar la altura del hermano
+          (feed). La aside sticky se ancla al top-14 con altura limitada al
+          viewport. El hueco visible entre el final de la aside y el footer
+          del sitio se rellena con el mismo bg-gray-900 del wrapper, evitando
+          el espacio negro cuando la página es alta. */}
+      <div
+        className={`hidden lg:flex flex-col shrink-0 bg-gray-900 border-r border-gray-800 transition-[width] duration-200 ${
           collapsed ? 'w-14' : 'w-[280px]'
         }`}
-        style={{ height: 'calc(100vh - 3.5rem)' }}
       >
-        {renderContent(false)}
-      </aside>
+        <aside
+          className="sticky top-14 flex flex-col"
+          style={{ height: 'calc(100vh - 3.5rem)' }}
+        >
+          {renderContent(false)}
+        </aside>
+      </div>
 
       {/* MOBILE — overlay */}
       {mobileOpen && (
