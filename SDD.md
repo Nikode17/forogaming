@@ -1,10 +1,16 @@
 # Software Design Document (SDD)
-## Foro de Videojuegos — Guías, Easter Eggs & Reviews
+## Respawn — Plataforma web de comunidad de videojuegos
 
-**Versión:** 0.1.0  
-**Estado:** Concepto / Pre-desarrollo  
-**Audiencia:** Claude Code / Equipo de desarrollo  
-**Última actualización:** 2026-04-08  
+**Versión:** 2.0.0
+**Estado:** Producción funcional — https://forogaming.vercel.app
+**Audiencia:** Claude Code / Equipo de desarrollo / Tribunal académico FP DAW
+**Última actualización:** 2026-05-17
+
+> **Nota sobre la evolución del documento.** Las secciones 1-8 contienen el diseño técnico
+> original (v0.1.0, abril 2026) y sirven como referencia histórica del planteamiento inicial.
+> La **sección 9** documenta el estado real construido (mayo 2026), incluyendo todas las
+> fases entregadas, nuevas decisiones y diferencias respecto al diseño original.
+> En caso de discrepancia, la sección 9 es la fuente de verdad.
 
 ---
 
@@ -18,6 +24,7 @@
 6. [Requisitos no funcionales](#6-requisitos-no-funcionales)
 7. [Decisiones de diseño (ADRs)](#7-decisiones-de-diseño-adrs)
 8. [Diagramas](#8-diagramas)
+9. [Estado actual — fases construidas (v2.0.0)](#9-estado-actual--fases-construidas-v200)
 
 ---
 
@@ -593,4 +600,193 @@ Cliente                  Backend                 S3 / CDN
 
 ---
 
-*Documento generado para uso en desarrollo. Actualizar conforme avance el proyecto.*
+## 9. Estado actual — fases construidas (v2.0.0)
+
+Esta sección documenta lo que existe **hoy** en producción. Para historia cronológica
+detallada con fechas y commits, ver `JOURNAL.md`. Para cheatsheet operativa, ver `CLAUDE.md`.
+
+### 9.1 Stack tecnológico definitivo
+
+| Capa | Tecnología | Nota |
+|---|---|---|
+| Framework web | Next.js 16 (App Router) | Turbopack en dev |
+| Lenguaje | TypeScript | Modo estricto |
+| Estilos | Tailwind CSS | Dark mode hardcoded |
+| Base de datos | PostgreSQL en Neon (eu-west-2) | Plan free para v1 |
+| Auth | JWT con `jose` (HS256) | Access 15min + refresh httpOnly 7d |
+| Hash passwords | bcryptjs (cost 10) | — |
+| Storage de medios | Uploadthing | Avatars 2MB×1, post images 4MB×10 |
+| Rate limiting | Upstash Redis | Fallback a memoria con circuit breaker |
+| Catálogo de juegos | IGDB API | Consumo desde `/api/games/search` |
+| Hosting | Vercel | Auto-deploy desde `master` |
+
+### 9.2 Cambios respecto al diseño original
+
+| Diseño original (v0.1.0) | Estado actual (v2.0.0) | Razón |
+|---|---|---|
+| "Mensajería privada — fuera de alcance v1" | Implementada (`direct_messages`) | Requerida tras Fase 4a |
+| "IGDB — a valorar en v2" | Implementada en v1 | Acelera el catálogo de juegos |
+| "Cover image única" | Multi-imagen (hasta 10) | Fase 3, alineado con UX moderna |
+| SPA pura | App Router con SSR + Client Components mezclados | Beneficios SEO y first paint |
+| "S3-compatible" para medios | Uploadthing | Más rápido de integrar, plan free generoso |
+| Sin sistema de bloqueos | Bloqueos bidireccionales totales | Fase 4a |
+| Reportes con `target_type` post/comment/user | Añadido `message` | Fase 4b |
+
+### 9.3 Modelo de datos extendido (tablas añadidas o modificadas)
+
+**Tablas nuevas no documentadas en sección 3:**
+
+- **`friend_requests`** (sender_id, receiver_id, status enum 'pending'|'accepted'|'rejected', created_at). UNIQUE(sender, receiver). Migración 002.
+- **`direct_messages`** (id, sender_id, receiver_id, body con CHECK ≤2000 chars, created_at, read_at). Índices por receiver_id y sender_id con created_at DESC. Migración 002.
+- **`user_blocks`** (id, blocker_id, blocked_id, created_at). CHECK no-self, UNIQUE(blocker, blocked). FK con ON DELETE CASCADE. Migración 003.
+- **`follows`** (follower_id, following_id, created_at). PK compuesta. Migración 004.
+- **`schema_migrations`** (filename PK, applied_at). Tracking del runner. Creada por el propio runner si no existe.
+
+**Tablas modificadas respecto al diseño original:**
+
+- **`users`**: añadida columna `last_seen TIMESTAMPTZ` (migración manual 002_last_seen aplicada antes del runner unificado — huérfana en disco pero registrada en `schema_migrations`).
+- **`reports`**: ampliada en migraciones 005 y 006:
+  - ENUM `report_target` añade valor `'message'`
+  - Columnas nuevas: `description TEXT`, `resolved_at TIMESTAMPTZ`, `resolved_by UUID`, `updated_at TIMESTAMPTZ`
+  - Índices nuevos: `idx_reports_status (status, created_at DESC)`, `idx_reports_target (target_type, status)`
+
+**Convención de migraciones:**
+
+- Naming `NNN_descripcion.sql` ordenable alfabéticamente.
+- Idempotentes: `IF NOT EXISTS` en tablas, índices, columnas; `ON CONFLICT DO NOTHING` en seeds.
+- `ALTER TYPE ... ADD VALUE` siempre en migración separada (Postgres no permite usar el valor recién añadido en la misma tx).
+- Runner aplica en transacción por archivo y registra en `schema_migrations`.
+
+### 9.4 Endpoints API actuales
+
+Inventario real (cada uno expone los métodos indicados):
+
+**Auth (4):**
+- `POST /api/auth/login`, `POST /api/auth/logout`, `POST /api/auth/refresh`, `POST /api/auth/register`
+
+**Posts y contenido (8):**
+- `GET/POST /api/posts` — listado con filtros `?q&category&game&sort&page&limit` + creación
+- `GET/PUT/DELETE /api/posts/[id]` — detalle (404 si autor bloqueado), edit, soft-delete
+- `GET/POST /api/posts/[id]/comments` — listado filtrado por bloqueos + creación con 403 anti-bloqueo
+- `GET /api/posts/trending` — feed con score temporal
+- `GET /api/posts/search` — búsqueda dedicada
+- `GET /api/comments/[id]` (lecturas individuales)
+
+**Usuarios (8):**
+- `GET /api/users/[username]` — perfil con `viewer_blocked_them`, `is_following`
+- `GET /api/users/[username]/follow`, `POST/DELETE` mismo path
+- `POST/DELETE /api/users/[username]/block` — bloquear/desbloquear (tx borra friend_requests)
+- `GET /api/users/me`, `GET /api/users/me/favorites`, `GET /api/users/me/blocks`
+- `GET /api/users/search` — búsqueda con exclusión de bloqueados
+
+**Friends (4):**
+- `GET /api/friends`, `GET /api/friends/pending`, `POST /api/friends/request`, `POST /api/friends/respond`
+
+**Messages (3):**
+- `GET /api/messages`, `GET/POST /api/messages/[username]`, `GET /api/messages/unread`
+
+**Reports + Admin (4):**
+- `POST /api/reports` — con anti-spam 24h, rate limit 20/h, anti-self-report
+- `GET /api/admin/reports` — filtros status × target_type + `target_details` enriquecidos
+- `POST /api/admin/reports/[id]/resolve` — action dismiss|remove_content|ban_user (tx)
+- `GET/PUT /api/admin/users/[id]/ban`, `DELETE /api/admin/posts/[id]`
+
+**Misc (8):**
+- `GET /api/games`, `GET /api/games/[slug]`, `GET /api/games/search`
+- `POST /api/votes`, `POST /api/likes`, `POST/DELETE /api/favorites/[postId]`
+- `GET /api/stats`, `GET /api/health`
+- `GET /api/uploadthing` (router) + `POST /api/media/presign`
+
+### 9.5 Decisiones arquitectónicas posteriores al SDD original
+
+#### ADR-010 — SSR autenticado vía cookie httpOnly + access token efímero
+
+**Decisión:** los Server Components que necesitan contexto de usuario usan `serverApiFetch()` (helper en `src/lib/server-auth.ts`), que lee la cookie `fg_refresh_token`, valida y emite un access token efímero solo para el render actual. Memoizado con `React.cache()` para deduplicar dentro de un mismo render.
+
+**Razón:** los Server Components no tienen acceso al `accessToken` en memoria del cliente (vive en `AuthContext`). Sin este helper, los filtros personalizados (bloqueos, `is_following`, `viewer_blocked_them`) no funcionan en el primer render SSR.
+
+**Prerequisito crítico:** la cookie del refresh token debe tener `Path=/` (no `/api/auth`) para que el navegador la envíe a todas las páginas. Esto se cambió en commit `73feef8` precedente.
+
+#### ADR-011 — Bloqueo bidireccional total como filtro SQL declarativo
+
+**Decisión:** la tabla `user_blocks` tiene una fila por dirección. El filtrado en queries se hace con un fragmento SQL reutilizable (`excludeBlockedSql(otherIdExpr, myIdParam)` de `src/lib/blocks.ts`) que genera un `NOT IN (UNION de bloqueos en ambas direcciones)`.
+
+**Alternativas descartadas:**
+- Helper JS que carga el Set de bloqueados y filtra en memoria → ineficiente para feeds grandes.
+- CTE compartida via WITH → requiere reescribir queries existentes invasivamente.
+
+**Decisiones derivadas:**
+- Listados: filtrar con SQL.
+- Detalles: 404 si hay relación de bloqueo (sin leak de existencia).
+- Acciones: 403.
+- Perfil: 404 si te bloqueó él; perfil reducido con flag `viewer_blocked_them` si tú le bloqueaste (para mostrar botón "Desbloquear").
+- Comentarios: filtrar SQL — los replies huérfanos cuyo ancestro era de un bloqueado quedan descartados naturalmente por `buildTree`.
+
+#### ADR-012 — Multi-imagen reutilizando `post_media` (no tabla nueva)
+
+**Decisión:** mantener la tabla `post_media` (que ya soportaba `type='image' | 'video_embed'`) en lugar de crear `post_images` paralela.
+
+**Razón:** evita fragmentación de modelo. El frontend filtra por `type='image'` donde necesita imagen pura. Endpoints añaden:
+- `GET /api/posts/[id]`: campo derivado `images` con filtro aplicado.
+- `GET /api/posts` (feed): `thumbnail_url` calculado con `LEFT JOIN LATERAL` que respeta el GROUP BY.
+
+Límite cliente: 10 imágenes por post. Validación dual: Zod en servidor + UI bloquea el botón añadir.
+
+#### ADR-013 — Sistema de reportes con 4 target types y acciones admin transaccionales
+
+**Decisión:** `report_target` ENUM extendido para soportar `message` además de post/comment/user. Endpoint `POST /api/admin/reports/[id]/resolve` con 3 acciones (dismiss / remove_content / ban_user) ejecutadas en transacción:
+- `dismiss` → `status='dismissed'`, no toca target.
+- `remove_content` → soft-delete target (hard delete en messages) + `status='resolved'`.
+- `ban_user` → resuelve owner del target + `UPDATE users SET is_banned=TRUE` + `status='resolved'`.
+
+**Anti-abuso:** ventana de 24h por (reporter_id, target_id, target_type) + rate limit 20 reportes/h por usuario + anti-self-report + only-receiver para mensajes.
+
+#### ADR-014 — Auth como modal + páginas standalone preservadas
+
+**Decisión:** los formularios de login/register están extraídos en `LoginForm` y `RegisterForm` con prop `embedded?: boolean`. Se renderizan tanto en modal (`AuthModal` controlado por `AuthModalContext`) como en página standalone (`/login`, `/register`).
+
+**Razón:** modal mejora la UX de interacciones inline (votar, comentar, seguir) sin perder el contexto. Páginas standalone se mantienen para shareable links, redirects 401 y SEO. Una sola implementación del formulario, dos chromes.
+
+**Regla:** los botones de auth **interactivos** llaman a `openLogin()`/`openRegister()`. Las redirecciones automáticas (`useEffect → router.push('/login')` en `/submit`, `/friends`, `/settings`, etc.) siguen mandando a la página standalone (intencional, no se cambia).
+
+#### ADR-015 — Layout con sidebar persistente + filtros URL shareables
+
+**Decisión:** sidebar izquierda persistente (Client Component) reemplaza el header con tarjetas de juegos. Búsqueda, sort, filtro categoría y filtro juego viven en query string (`?q=`, `?sort=`, `?category=`, `?game=`). Combinables.
+
+**Razón:** URLs shareables (`/?category=guide&game=elden-ring`), navegación instant via Next.js, persistencia de estado en F5. Búsqueda con debounce 300ms manipula `?q` directamente.
+
+**Responsive:** sidebar visible en `≥lg` (1024px). En mobile se oculta y se accede via hamburguesa en navbar, abre overlay controlado por `SidebarContext`. Persistencia `localStorage['sidebar-collapsed']` para el toggle desktop.
+
+### 9.6 Convenciones de seguridad operativas
+
+- **CSP `img-src`** restrictivo. Allowlist: Steam CDN (3 hostnames), Imgur, `*.ufs.sh`, `utfs.io`, `images.igdb.com`, `data:`, `blob:`. Cualquier imagen externa que necesite otro dominio requiere modificar `next.config.ts`.
+- **CSP `script-src`** permite `'unsafe-eval'` y `'unsafe-inline'` (Next.js requirement). Aceptado.
+- **Permissions-Policy** desactiva camera, microphone, geolocation, payment.
+- **HSTS** habilitado.
+- **X-Frame-Options: DENY** — sin embedding del sitio.
+- **JWT**: secret de ≥32 chars (validado en `getSecret()`). Access token NO httpOnly (vive en memoria del cliente, manejado por `AuthContext`). Refresh token httpOnly + Secure en prod.
+- **Logout** revoca el refresh token vía tabla `revoked_tokens` (con limpieza por `expires_at`). Refresh comprueba esta tabla antes de emitir nuevo access.
+- **Rate limiting** en endpoints críticos: login (10/15min por IP), register (5/h por IP), post create (10/h por user), votes (100/h por user), reports (20/h por user).
+- **Sanitización HTML** custom (`src/lib/sanitize.ts`) sin `jsdom` para evitar incompatibilidad ESM con Vercel/Turbopack. Allowlist de tags por contexto (post vs comment).
+
+### 9.7 Operaciones y despliegue
+
+- **Auto-deploy:** push a `master` → Vercel detecta → build + deploy en 2-3 min.
+- **Migraciones a prod:** el runner debe ejecutarse manualmente desde local con `--env-file=.env.prod-temp`, **no** está integrado en el build de Vercel. Ver `JOURNAL.md` para el episodio de drift histórico.
+- **Variables de entorno en Vercel:** configuradas manualmente desde el dashboard. Las críticas son `DATABASE_URL`, `JWT_SECRET`, `NEXT_PUBLIC_APP_URL`, `UPLOADTHING_TOKEN`/`SECRET`, `UPSTASH_REDIS_REST_URL`/`TOKEN`.
+- **Procedimiento para tocar prod desde local:**
+  1. Crear `.env.prod-temp` (gitignored por patrón `.env*`).
+  2. Verificar host con `node --env-file=.env.prod-temp -e "..."` antes de cualquier escritura.
+  3. Ejecutar script.
+  4. **Borrar el archivo** (`Remove-Item .env.prod-temp`).
+  5. Considerar rotar la password de Neon si la URL pasó por chat/script.
+
+### 9.8 Documentación complementaria
+
+- **`CLAUDE.md`** — cheatsheet operativa para Claude Code y desarrolladores. Auto-cargado en sesiones nuevas.
+- **`JOURNAL.md`** — historia cronológica con fechas y commits. Útil para entender por qué hay drift histórico.
+- **`README.md`** — (a futuro) onboarding para humanos nuevos al proyecto. Por ahora `CLAUDE.md` cumple esa función.
+
+---
+
+*Documento mantenido manualmente. Actualizar al cerrar cada fase.*
