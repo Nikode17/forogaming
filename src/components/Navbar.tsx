@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSidebar } from '@/contexts/SidebarContext'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 export default function Navbar() {
   const { user, accessToken, isLoading, logout } = useAuth()
   const { toggleMobile } = useSidebar()
+  const { openLogin, openRegister } = useAuthModal()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -190,18 +192,20 @@ export default function Navbar() {
           ) : (
             /* No autenticado */
             <>
-              <Link
-                href="/login"
+              <button
+                type="button"
+                onClick={openLogin}
                 className="text-sm text-gray-300 hover:text-white px-3 py-1.5 rounded-lg hover:bg-gray-800 transition-colors"
               >
                 Iniciar sesión
-              </Link>
-              <Link
-                href="/register"
+              </button>
+              <button
+                type="button"
+                onClick={openRegister}
                 className="text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 rounded-lg transition-colors"
               >
                 Registrarse
-              </Link>
+              </button>
             </>
           )}
         </div>

@@ -1,10 +1,11 @@
 'use client'
 
-import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 export default function GuestCTA() {
   const { user, isLoading } = useAuth()
+  const { openLogin, openRegister } = useAuthModal()
   if (isLoading || user) return null
 
   return (
@@ -22,18 +23,20 @@ export default function GuestCTA() {
           </p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={openLogin}
             className="px-4 py-2 text-sm font-medium text-indigo-300 hover:text-white border border-indigo-700 hover:border-indigo-500 rounded-lg transition-colors"
           >
             Iniciar sesión
-          </Link>
-          <Link
-            href="/register"
+          </button>
+          <button
+            type="button"
+            onClick={openRegister}
             className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors"
           >
             Registrarse gratis
-          </Link>
+          </button>
         </div>
       </div>
     </div>

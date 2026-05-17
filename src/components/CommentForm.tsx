@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 interface CommentFormProps {
   postId: string
@@ -12,6 +13,7 @@ interface CommentFormProps {
 
 export default function CommentForm({ postId, parentId, onSuccess }: CommentFormProps) {
   const { user, accessToken } = useAuth()
+  const { openLogin } = useAuthModal()
   const router = useRouter()
   const [body, setBody] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -21,7 +23,8 @@ export default function CommentForm({ postId, parentId, onSuccess }: CommentForm
     return (
       <div className="text-sm text-gray-500 py-2">
         <button
-          onClick={() => router.push('/login')}
+          type="button"
+          onClick={openLogin}
           className="text-indigo-400 hover:text-indigo-300"
         >
           Inicia sesión

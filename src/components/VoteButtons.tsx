@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAuthModal } from '@/contexts/AuthModalContext'
 
 interface VoteButtonsProps {
   targetType: 'post' | 'comment'
@@ -22,7 +22,7 @@ export default function VoteButtons({
   vertical = true,
 }: VoteButtonsProps) {
   const { user, accessToken } = useAuth()
-  const router = useRouter()
+  const { openLogin } = useAuthModal()
   const [upvotes, setUpvotes] = useState(initialUpvotes)
   const [downvotes, setDownvotes] = useState(initialDownvotes)
   const [currentVote, setCurrentVote] = useState<VoteState>(null)
@@ -32,7 +32,7 @@ export default function VoteButtons({
 
   async function handleVote(direction: 'up' | 'down') {
     if (!user) {
-      router.push('/login')
+      openLogin()
       return
     }
     if (isSubmitting) return
