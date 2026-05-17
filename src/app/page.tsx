@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import Feed from '@/components/Feed'
 import Sidebar from '@/components/Sidebar'
-import CommunityStats from '@/components/CommunityStats'
 import GuestCTA from '@/components/GuestCTA'
 import { serverApiFetch } from '@/lib/server-auth'
 
@@ -35,16 +34,14 @@ export default async function HomePage({
   if (sp.category)         apiQs.set('category', sp.category)
   if (sp.game)             apiQs.set('game', sp.game)
 
-  const [postsData, gamesData, statsData] = await Promise.all([
+  const [postsData, gamesData] = await Promise.all([
     serverApiFetch<ApiAny>(`/api/posts?${apiQs.toString()}`, { next: { revalidate: 60 } }),
     serverApiFetch<ApiAny>('/api/games?limit=100', { next: { revalidate: 60 } }),
-    serverApiFetch<ApiAny>('/api/stats', { next: { revalidate: 60 } }),
   ])
 
   const posts      = postsData?.data ?? []
   const pagination = postsData?.pagination ?? { page: Number(page), limit: 20, total: 0, totalPages: 1 }
   const allGames   = Array.isArray(gamesData?.data) ? gamesData.data : []
-  const stats      = statsData ?? { post_count: 0, user_count: 0, game_count: 0 }
 
   // Top juegos por post_count para la sidebar
   const topGames = [...allGames]
@@ -71,12 +68,6 @@ export default async function HomePage({
 
       <div className="flex-1 min-w-0">
         <div className="max-w-3xl mx-auto px-4 py-6">
-          {/* Stats + Guest CTA */}
-          <CommunityStats
-            postCount={stats.post_count}
-            userCount={stats.user_count}
-            gameCount={stats.game_count}
-          />
           <GuestCTA />
 
           {/* Indicador de filtros activos */}
