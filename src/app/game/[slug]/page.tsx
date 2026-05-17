@@ -199,13 +199,13 @@ export default async function GamePage({
       )}
 
       {/* ── POSTS ── */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex gap-6">
-          <div className="hidden lg:block">
-            <Sidebar games={games} />
-          </div>
+      <div className="flex gap-6">
+        <div className="hidden lg:block">
+          <Sidebar games={games} />
+        </div>
 
-          <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0">
+          <div className="max-w-3xl mx-auto px-4 py-6">
             {/* Tabs categoría */}
             <div className="flex items-center gap-1 mb-4 bg-gray-900 border border-gray-800 rounded-lg p-1">
               {categoryTabs.map((tab) => {
