@@ -1,8 +1,17 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { excludeBlockedSql } from '@/lib/blocks'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const meId = request.headers.get('x-user-id')
+    const params: unknown[] = []
+    let blockedClause = ''
+    if (meId) {
+      params.push(meId)
+      blockedClause = ` WHERE ${excludeBlockedSql('ps.author_id', '$1')}`
+    }
+
     const result = await query<{
       id: string; title: string; category: string; game_id: string | null
       author_id: string | null; upvotes: string; downvotes: string
@@ -22,12 +31,13 @@ export async function GET() {
       LEFT JOIN users    u ON u.id = ps.author_id
       LEFT JOIN games    g ON g.id = ps.game_id
       LEFT JOIN comments c ON c.post_id = ps.id AND c.is_deleted = FALSE
+      ${blockedClause}
       GROUP BY ps.id, ps.title, ps.category, ps.game_id, ps.author_id,
                ps.upvotes, ps.downvotes, ps.net_votes, ps.trending_score,
                u.username, u.avatar_url, g.name, g.slug
       ORDER BY ps.trending_score DESC
       LIMIT 10
-    `)
+    `, params)
 
     const posts = result.rows.map(row => ({
       id: row.id,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { CreateReportSchema, formatZodError } from '@/lib/validation'
+import { rateLimitReport, rateLimitHeaders } from '@/lib/ratelimit'
 
 type UserRole = 'admin' | 'moderator' | 'user' | 'guest'
 
@@ -12,8 +13,53 @@ function getRequestUser(request: NextRequest) {
   return { id, role, username }
 }
 
-function err(code: string, message: string, status: number) {
-  return NextResponse.json({ error: { code, message } }, { status })
+function err(code: string, message: string, status: number, extra?: object) {
+  return NextResponse.json({ error: { code, message, ...extra } }, { status })
+}
+
+/**
+ * Resuelve el author_id (post/comment) o sender_id (message) del target para
+ * detectar auto-reportes. Devuelve null si el target no existe.
+ *
+ * Para 'message' devuelve también recipient_id porque solo el receptor puede
+ * reportar un DM (el sender no puede reportarse a sí mismo y un tercero no
+ * participa en la conversación).
+ */
+async function resolveTargetOwner(
+  target_type: 'post' | 'comment' | 'user' | 'message',
+  target_id: string
+): Promise<{ ownerId: string | null; recipientId?: string } | null> {
+  switch (target_type) {
+    case 'post': {
+      const r = await query<{ author_id: string | null }>(
+        'SELECT author_id FROM posts WHERE id = $1 AND is_deleted = FALSE',
+        [target_id]
+      )
+      if (r.rows.length === 0) return null
+      return { ownerId: r.rows[0].author_id }
+    }
+    case 'comment': {
+      const r = await query<{ author_id: string | null }>(
+        'SELECT author_id FROM comments WHERE id = $1 AND is_deleted = FALSE',
+        [target_id]
+      )
+      if (r.rows.length === 0) return null
+      return { ownerId: r.rows[0].author_id }
+    }
+    case 'user': {
+      const r = await query<{ id: string }>('SELECT id FROM users WHERE id = $1', [target_id])
+      if (r.rows.length === 0) return null
+      return { ownerId: r.rows[0].id }
+    }
+    case 'message': {
+      const r = await query<{ sender_id: string; receiver_id: string }>(
+        'SELECT sender_id, receiver_id FROM direct_messages WHERE id = $1',
+        [target_id]
+      )
+      if (r.rows.length === 0) return null
+      return { ownerId: r.rows[0].sender_id, recipientId: r.rows[0].receiver_id }
+    }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -21,12 +67,17 @@ export async function POST(request: NextRequest) {
   if (!user) return err('UNAUTHORIZED', 'No autenticado', 401)
   if (user.role === 'guest') return err('FORBIDDEN', 'Acceso denegado', 403)
 
-  let body: unknown
-  try {
-    body = await request.json()
-  } catch {
-    return err('VALIDATION_ERROR', 'Body inválido', 422)
+  // Rate limit por usuario (20/hora)
+  const rl = await rateLimitReport(user.id)
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: { code: 'RATE_LIMITED', message: 'Has excedido el límite de reportes por hora' } },
+      { status: 429, headers: rateLimitHeaders(rl, 20) }
+    )
   }
+
+  let body: unknown
+  try { body = await request.json() } catch { return err('VALIDATION_ERROR', 'Body inválido', 422) }
 
   const parsed = CreateReportSchema.safeParse(body)
   if (!parsed.success) {
@@ -36,48 +87,38 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { target_type, target_id, reason } = parsed.data
+  const { target_type, target_id, reason, description } = parsed.data
 
-  // Verificar que el target existe según tipo
-  let targetTable: string
-  let targetCondition: string
-  switch (target_type) {
-    case 'post':
-      targetTable = 'posts'
-      targetCondition = 'id = $1 AND is_deleted = FALSE'
-      break
-    case 'comment':
-      targetTable = 'comments'
-      targetCondition = 'id = $1 AND is_deleted = FALSE'
-      break
-    case 'user':
-      targetTable = 'users'
-      targetCondition = 'id = $1'
-      break
+  // Resolver autor del target para detectar auto-reportes y validar permisos en mensajes
+  const owner = await resolveTargetOwner(target_type, target_id)
+  if (!owner) return err('NOT_FOUND', `${target_type} no encontrado`, 404)
+
+  if (owner.ownerId === user.id) {
+    return err('BAD_REQUEST', 'No puedes reportar tu propio contenido', 400)
   }
 
-  const targetCheck = await query(
-    `SELECT id FROM ${targetTable} WHERE ${targetCondition}`,
-    [target_id]
-  )
-  if (targetCheck.rowCount === 0) {
-    return err('NOT_FOUND', `${target_type} no encontrado`, 404)
+  // Reglas extra para mensajes privados: solo el receptor puede reportar
+  if (target_type === 'message' && owner.recipientId !== user.id) {
+    return err('FORBIDDEN', 'Solo el destinatario puede reportar un mensaje', 403)
   }
 
-  // Verificar que no haya reporte duplicado
+  // Ventana anti-spam de 24h: no reportar el mismo target dos veces en 24h
   const duplicateCheck = await query(
-    `SELECT id FROM reports WHERE reporter_id = $1 AND target_type = $2 AND target_id = $3 LIMIT 1`,
+    `SELECT id FROM reports
+     WHERE reporter_id = $1 AND target_type = $2 AND target_id = $3
+       AND created_at > NOW() - INTERVAL '24 hours'
+     LIMIT 1`,
     [user.id, target_type, target_id]
   )
-  if (duplicateCheck.rowCount! > 0) {
-    return err('CONFLICT', 'Ya has reportado este contenido', 409)
+  if (duplicateCheck.rowCount && duplicateCheck.rowCount > 0) {
+    return err('CONFLICT', 'Ya has reportado este contenido en las últimas 24 horas', 409)
   }
 
   const result = await query<{ id: string; status: string }>(
-    `INSERT INTO reports (reporter_id, target_type, target_id, reason, status)
-     VALUES ($1, $2, $3, $4, 'pending')
+    `INSERT INTO reports (reporter_id, target_type, target_id, reason, description, status)
+     VALUES ($1, $2, $3, $4, $5, 'pending')
      RETURNING id, status`,
-    [user.id, target_type, target_id, reason]
+    [user.id, target_type, target_id, reason, description ?? null]
   )
 
   return NextResponse.json(

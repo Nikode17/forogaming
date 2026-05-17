@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getBlockRelation, hasAnyBlock } from '@/lib/blocks'
 
 function getUser(req: NextRequest) {
   const id = req.headers.get('x-user-id')
@@ -33,6 +34,10 @@ export async function POST(req: NextRequest) {
   if (!target.rows[0]) return err('NOT_FOUND', 'Usuario no encontrado', 404)
 
   const targetId = target.rows[0].id
+
+  // 403 si hay bloqueo en cualquier dirección
+  const rel = await getBlockRelation(me.id, targetId)
+  if (hasAnyBlock(rel)) return err('FORBIDDEN', 'No puedes enviar solicitud a este usuario', 403)
 
   // Comprobar si ya existe relación en cualquier dirección
   const existing = await query<{ status: string; sender_id: string }>(

@@ -34,3 +34,6 @@ next-env.d.ts
 documentacion-proyecto.pdf
 
 .vercel
+
+.env.prod-temp
+.claude/

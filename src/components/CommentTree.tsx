@@ -4,10 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import VoteButtons from '@/components/VoteButtons'
 import CommentForm from '@/components/CommentForm'
+import UserActionsMenu from '@/components/UserActionsMenu'
 
 interface CommentNode {
   id: string
-  author: { username: string; avatar_url: string | null } | null
+  author: { id?: string; username: string; avatar_url: string | null } | null
   parent_id: string | null
   body: string
   is_deleted: boolean
@@ -68,6 +69,13 @@ function CommentItem({ comment, postId, depth }: { comment: CommentNode; postId:
                   >
                     {comment.author.username}
                   </Link>
+                  {comment.author.id && (
+                    <UserActionsMenu
+                      targetUsername={comment.author.username}
+                      targetUserId={comment.author.id}
+                      reportableCommentId={comment.id}
+                    />
+                  )}
                 </>
               ) : (
                 <span className="text-sm text-gray-600">[eliminado]</span>

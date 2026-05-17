@@ -4,19 +4,10 @@ import Sidebar from '@/components/Sidebar'
 import VoteButtons from '@/components/VoteButtons'
 import CommentTree from '@/components/CommentTree'
 import CommentForm from '@/components/CommentForm'
+import PostGallery from '@/components/PostGallery'
+import UserActionsMenu from '@/components/UserActionsMenu'
 import type { CommentNode } from '@/components/CommentTree'
-
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-
-async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${baseUrl}${path}`, { next: { revalidate: 60 }, ...opts })
-    if (!res.ok) return null
-    return res.json() as Promise<T>
-  } catch {
-    return null
-  }
-}
+import { serverApiFetch } from '@/lib/server-auth'
 
 interface MediaItem {
   id: string
@@ -30,7 +21,7 @@ interface PostData {
   title: string
   body: string
   category: string
-  author: { username: string; avatar_url: string | null } | null
+  author: { id?: string; username: string; avatar_url: string | null } | null
   game: { id: string; name: string; slug: string } | null
   upvotes: number
   downvotes: number
@@ -73,7 +64,7 @@ function timeAgo(date: string): string {
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const data = await apiFetch<{ data: { title: string; body: string } }>(`/api/posts/${id}`)
+  const data = await serverApiFetch<{ data: { title: string; body: string } }>(`/api/posts/${id}`)
   if (!data?.data) return { title: 'Post no encontrado — Respawn' }
   return {
     title: `${data.data.title} — Respawn`,
@@ -89,9 +80,9 @@ export default async function PostPage({
   const { id } = await params
 
   const [postData, commentsData, gamesData] = await Promise.all([
-    apiFetch<{ data: PostData }>(`/api/posts/${id}`),
-    apiFetch<{ data: CommentNode[] }>(`/api/posts/${id}/comments`),
-    apiFetch<{ data: GameItem[] }>('/api/games'),
+    serverApiFetch<{ data: PostData }>(`/api/posts/${id}`),
+    serverApiFetch<{ data: CommentNode[] }>(`/api/posts/${id}/comments`),
+    serverApiFetch<{ data: GameItem[] }>('/api/games'),
   ])
 
   if (!postData?.data) notFound()
@@ -158,7 +149,7 @@ export default async function PostPage({
           {/* Meta */}
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
             {post.author ? (
-              <span>
+              <span className="inline-flex items-center gap-1">
                 por{' '}
                 <Link
                   href={`/user/${post.author.username}`}
@@ -166,6 +157,13 @@ export default async function PostPage({
                 >
                   @{post.author.username}
                 </Link>
+                {post.author.id && (
+                  <UserActionsMenu
+                    targetUsername={post.author.username}
+                    targetUserId={post.author.id}
+                    reportablePostId={post.id}
+                  />
+                )}
               </span>
             ) : (
               <span className="text-gray-600">[eliminado]</span>
@@ -187,17 +185,10 @@ export default async function PostPage({
             />
           </div>
 
-          {/* Imagenes */}
+          {/* Galería de imágenes */}
           {images.length > 0 && (
-            <div className="mb-6 space-y-4">
-              {images.map((img) => (
-                <img
-                  key={img.id}
-                  src={img.url}
-                  alt=""
-                  className="w-full rounded-lg max-h-[600px] object-contain bg-gray-950"
-                />
-              ))}
+            <div className="mb-6">
+              <PostGallery images={images} />
             </div>
           )}
 

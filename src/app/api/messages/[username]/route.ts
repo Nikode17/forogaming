@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getBlockRelation, hasAnyBlock } from '@/lib/blocks'
 
 function getUser(req: NextRequest) {
   const id = req.headers.get('x-user-id')
@@ -13,6 +14,7 @@ function err(code: string, message: string, status: number) {
 }
 
 // GET /api/messages/[username]  →  mensajes con ese usuario (+ marca como leídos)
+// 404 si hay relación de bloqueo en cualquier dirección.
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ username: string }> }
@@ -29,6 +31,10 @@ export async function GET(
   if (!other.rows[0]) return err('NOT_FOUND', 'Usuario no encontrado', 404)
 
   const otherId = other.rows[0].id
+
+  // Bloqueo bidireccional → 404 (no leak de existencia)
+  const rel = await getBlockRelation(me.id, otherId)
+  if (hasAnyBlock(rel)) return err('NOT_FOUND', 'Usuario no encontrado', 404)
 
   // Marcar como leídos los mensajes recibidos
   await query(
@@ -76,6 +82,10 @@ export async function POST(
     'SELECT id FROM users WHERE username = $1', [username]
   )
   if (!other.rows[0]) return err('NOT_FOUND', 'Usuario no encontrado', 404)
+
+  // 403 si hay relación de bloqueo en cualquier dirección
+  const rel = await getBlockRelation(me.id, other.rows[0].id)
+  if (hasAnyBlock(rel)) return err('FORBIDDEN', 'No puedes enviar mensajes a este usuario', 403)
 
   let body: { body?: string }
   try { body = await req.json() } catch { return err('VALIDATION_ERROR', 'Body inválido', 422) }

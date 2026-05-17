@@ -137,6 +137,11 @@ export function rateLimitGeneral(ip: string): Promise<RateLimitResult> {
   return checkLimit('general', ip, 100, 60)
 }
 
+/** Reportes: 20 por usuario por hora */
+export function rateLimitReport(userId: string): Promise<RateLimitResult> {
+  return checkLimit('report', userId, 20, 60 * 60)
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────

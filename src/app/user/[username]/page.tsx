@@ -3,18 +3,8 @@ import type React from 'react'
 import type { PostCardProps } from '@/components/PostCard'
 import ProfileActions from '@/components/ProfileActions'
 import ProfileTabs from '@/components/ProfileTabs'
-
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-
-async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${baseUrl}${path}`, { next: { revalidate: 60 }, ...opts })
-    if (!res.ok) return null
-    return res.json() as Promise<T>
-  } catch {
-    return null
-  }
-}
+import BlockButton from '@/components/BlockButton'
+import { serverApiFetch } from '@/lib/server-auth'
 
 interface UserData {
   id: string
@@ -34,6 +24,7 @@ interface UserResponse {
   posts: PostCardProps['post'][]
   post_count: number
   is_following: boolean
+  viewer_blocked_them?: boolean
 }
 
 const roleBadges: Record<string, { bg: string; label: string }> = {
@@ -63,7 +54,7 @@ function formatDate(date: string): string {
 
 export async function generateMetadata({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
-  const data = await apiFetch<UserResponse>(`/api/users/${username}`)
+  const data = await serverApiFetch<UserResponse>(`/api/users/${username}`)
   if (!data) return { title: 'Usuario no encontrado — Respawn' }
   return {
     title: `${data.user.username} — Respawn`,
@@ -73,10 +64,10 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 
 export default async function UserPage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params
-  const data = await apiFetch<UserResponse>(`/api/users/${username}`)
+  const data = await serverApiFetch<UserResponse>(`/api/users/${username}`)
   if (!data) return notFound()
 
-  const { user, posts, post_count, is_following } = data
+  const { user, posts, post_count, is_following, viewer_blocked_them } = data
   const role = roleBadges[user.role] ?? roleBadges.user
   const coverGradient = getCoverGradient(user.username)
 
@@ -86,6 +77,16 @@ export default async function UserPage({ params }: { params: Promise<{ username:
       {user.is_banned && (
         <div className="bg-red-900/40 border border-red-800 rounded-lg px-4 py-3 mb-4 text-sm text-red-300 font-medium">
           Este usuario ha sido baneado.
+        </div>
+      )}
+
+      {/* Bloqueado por mí — badge informativo */}
+      {viewer_blocked_them && (
+        <div className="bg-red-950/50 border border-red-900/60 rounded-lg px-4 py-3 mb-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-red-200">
+            Has bloqueado a este usuario. No veréis nada el uno del otro.
+          </p>
+          <BlockButton targetUsername={user.username} initialBlocked variant="compact" />
         </div>
       )}
 
@@ -122,12 +123,15 @@ export default async function UserPage({ params }: { params: Promise<{ username:
           </div>
 
           {/* Action buttons */}
-          <div className="pb-1">
+          <div className="pb-1 flex items-center gap-2">
             <ProfileActions
               username={user.username}
               initialFollowing={is_following}
               initialCount={user.followers_count}
             />
+            {!viewer_blocked_them && (
+              <BlockButton targetUsername={user.username} variant="prominent" />
+            )}
           </div>
         </div>
 

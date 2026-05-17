@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getBlockRelation, hasAnyBlock } from '@/lib/blocks'
 
 function getUser(req: NextRequest) {
   const id = req.headers.get('x-user-id')
@@ -23,6 +24,17 @@ export async function POST(req: NextRequest) {
   const { request_id, action } = body
   if (!request_id || !['accept', 'reject'].includes(action ?? ''))
     return err('VALIDATION_ERROR', 'request_id y action requeridos', 422)
+
+  // Carga la solicitud para conocer el sender y aplicar el check de bloqueo
+  const reqRow = await query<{ sender_id: string }>(
+    `SELECT sender_id FROM friend_requests
+     WHERE id = $1 AND receiver_id = $2 AND status = 'pending'`,
+    [request_id, me.id]
+  )
+  if (reqRow.rows.length === 0) return err('NOT_FOUND', 'Solicitud no encontrada', 404)
+
+  const rel = await getBlockRelation(me.id, reqRow.rows[0].sender_id)
+  if (hasAnyBlock(rel)) return err('FORBIDDEN', 'No puedes responder a este usuario', 403)
 
   const newStatus = action === 'accept' ? 'accepted' : 'rejected'
 

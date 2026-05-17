@@ -15,7 +15,7 @@ function setRefreshCookie(response: NextResponse, token: string): void {
     `${REFRESH_TOKEN_COOKIE}=${token}`,
     'HttpOnly',
     'SameSite=Strict',
-    'Path=/api/auth',
+    'Path=/',
     `Max-Age=${7 * 24 * 60 * 60}`,
     ...(process.env.APP_ENV === 'production' ? ['Secure'] : []),
   ].join('; ')

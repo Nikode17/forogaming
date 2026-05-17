@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { excludeBlockedSql } from '@/lib/blocks'
 
 function getUser(req: NextRequest) {
   const id = req.headers.get('x-user-id')
@@ -8,6 +9,8 @@ function getUser(req: NextRequest) {
 }
 
 // GET /api/friends  →  lista de amigos aceptados + solicitudes pendientes recibidas
+// Defensa en profundidad: filtrar bloqueados aunque al bloquear ya se borran
+// las filas de friend_requests.
 export async function GET(req: NextRequest) {
   const me = getUser(req)
   if (!me) return NextResponse.json({ error: { code: 'UNAUTHORIZED' } }, { status: 401 })
@@ -23,6 +26,7 @@ export async function GET(req: NextRequest) {
       END
       WHERE (fr.sender_id = $1 OR fr.receiver_id = $1)
         AND fr.status = 'accepted'
+        AND ${excludeBlockedSql('u.id', '$1')}
       ORDER BY u.username ASC
     `, [me.id]),
 
@@ -31,7 +35,9 @@ export async function GET(req: NextRequest) {
       SELECT fr.id, fr.sender_id, u.username, u.avatar_url, fr.created_at
       FROM friend_requests fr
       JOIN users u ON u.id = fr.sender_id
-      WHERE fr.receiver_id = $1 AND fr.status = 'pending'
+      WHERE fr.receiver_id = $1
+        AND fr.status = 'pending'
+        AND ${excludeBlockedSql('fr.sender_id', '$1')}
       ORDER BY fr.created_at DESC
     `, [me.id]),
   ])

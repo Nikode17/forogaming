@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { SearchQuerySchema, formatZodError } from '@/lib/validation'
+import { excludeBlockedSql } from '@/lib/blocks'
 
 // TODO: Optimizar con indice GIN (to_tsvector) para produccion cuando el volumen de posts sea alto
 
@@ -22,6 +23,19 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit
     const pattern = `%${q}%`
 
+    // Filtro de bloqueos (si está logueado)
+    const meId = request.headers.get('x-user-id')
+    const baseDataParams: unknown[] = [pattern, limit, offset]
+    const baseCountParams: unknown[] = [pattern]
+    let dataBlockClause = ''
+    let countBlockClause = ''
+    if (meId) {
+      baseDataParams.push(meId)
+      baseCountParams.push(meId)
+      dataBlockClause = ` AND ${excludeBlockedSql('p.author_id', '$4')}`
+      countBlockClause = ` AND ${excludeBlockedSql('author_id', '$2')}`
+    }
+
     const [dataResult, countResult] = await Promise.all([
       query<{
         id: string; title: string; category: string; created_at: string
@@ -36,14 +50,16 @@ export async function GET(request: NextRequest) {
         LEFT JOIN games g ON g.id = p.game_id
         WHERE  p.is_deleted = FALSE AND p.is_published = TRUE
           AND  (p.title ILIKE $1 OR p.body ILIKE $1)
+          ${dataBlockClause}
         ORDER  BY p.created_at DESC
         LIMIT  $2 OFFSET $3
-      `, [pattern, limit, offset]),
+      `, baseDataParams),
       query<{ count: string }>(`
         SELECT COUNT(*) AS count FROM posts
         WHERE  is_deleted = FALSE AND is_published = TRUE
           AND  (title ILIKE $1 OR body ILIKE $1)
-      `, [pattern]),
+          ${countBlockClause}
+      `, baseCountParams),
     ])
 
     const total = Number(countResult.rows[0]?.count ?? 0)

@@ -25,9 +25,9 @@ export const ourFileRouter = {
       return { url: file.ufsUrl, uploadedBy: metadata.userId }
     }),
 
-  // Imágenes para posts — máx 8MB, hasta 4 archivos
+  // Imágenes para posts — máx 4MB, hasta 10 archivos
   postImageUploader: f({
-    image: { maxFileSize: '8MB', maxFileCount: 4 },
+    image: { maxFileSize: '4MB', maxFileCount: 10 },
   })
     .middleware(async ({ req }) => getAuthUser(req))
     .onUploadComplete(async ({ metadata, file }) => {

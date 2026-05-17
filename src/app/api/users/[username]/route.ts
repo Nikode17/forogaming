@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getBlockRelation } from '@/lib/blocks'
 
 function err(code: string, message: string, status: number) {
   return NextResponse.json({ error: { code, message } }, { status })
@@ -32,6 +33,37 @@ export async function GET(
   }
 
   const user = userResult.rows[0]
+
+  // Bloqueo (decisión d2):
+  //  · si ÉL me bloqueó → 404 simulado (no leak de que me tiene bloqueado)
+  //  · si YO le bloqueé → perfil reducido con flag para que el frontend muestre
+  //    el badge "Le has bloqueado" + botón desbloquear
+  if (viewerId && viewerId !== user.id) {
+    const rel = await getBlockRelation(viewerId, user.id)
+    if (rel.blockedByThem && !rel.iBlocked) {
+      return err('NOT_FOUND', 'Usuario no encontrado', 404)
+    }
+    if (rel.iBlocked) {
+      return NextResponse.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          avatar_url: user.avatar_url,
+          role: user.role,
+          bio: null,
+          is_banned: user.is_banned,
+          created_at: user.created_at,
+          followers_count: 0,
+          following_count: 0,
+          friends_count: 0,
+        },
+        posts: [],
+        post_count: 0,
+        is_following: false,
+        viewer_blocked_them: true,
+      })
+    }
+  }
 
   // Followers / following counts
   const [followersRes, followingRes] = await Promise.all([

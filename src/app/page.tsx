@@ -5,17 +5,13 @@ import HeroCarousel from '@/components/HeroCarousel'
 import GamesStrip from '@/components/GamesStrip'
 import CommunityStats from '@/components/CommunityStats'
 import GuestCTA from '@/components/GuestCTA'
+import { serverApiFetch } from '@/lib/server-auth'
 
-async function fetchFromApi(path: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  try {
-    const res = await fetch(`${baseUrl}${path}`, { next: { revalidate: 60 } })
-    if (!res.ok) return null
-    return res.json()
-  } catch {
-    return null
-  }
-}
+// Responses se mantienen sin tipar estrictamente — el código consumidor del
+// archivo asume shapes implícitos y narrowing con optional chaining; tipar
+// rígidamente aquí obligaría a un refactor mayor fuera del scope de este bloque.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiAny = any
 
 export default async function HomePage({
   searchParams,
@@ -25,10 +21,10 @@ export default async function HomePage({
   const { page = '1', sort = 'new' } = await searchParams
 
   const [postsData, trendingData, gamesData, statsData] = await Promise.all([
-    fetchFromApi(`/api/posts?sort=${sort}&page=${page}&limit=20`),
-    fetchFromApi('/api/posts/trending'),
-    fetchFromApi('/api/games?limit=100'),
-    fetchFromApi('/api/stats'),
+    serverApiFetch<ApiAny>(`/api/posts?sort=${sort}&page=${page}&limit=20`, { next: { revalidate: 60 } }),
+    serverApiFetch<ApiAny>('/api/posts/trending', { next: { revalidate: 60 } }),
+    serverApiFetch<ApiAny>('/api/games?limit=100', { next: { revalidate: 60 } }),
+    serverApiFetch<ApiAny>('/api/stats', { next: { revalidate: 60 } }),
   ])
 
   const posts      = postsData?.data ?? []

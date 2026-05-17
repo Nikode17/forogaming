@@ -3,6 +3,7 @@ import { query, withTransaction } from '@/lib/db'
 import { PostsQuerySchema, CreatePostSchema, formatZodError } from '@/lib/validation'
 import { sanitizePostBody, isAllowedEmbedUrl, isValidImageUrl } from '@/lib/sanitize'
 import { rateLimitPostCreate, rateLimitHeaders } from '@/lib/ratelimit'
+import { excludeBlockedSql } from '@/lib/blocks'
 import type { UserRole } from '@/types'
 
 function getRequestUser(request: NextRequest) {
@@ -51,6 +52,15 @@ export async function GET(request: NextRequest) {
       paramIndex++
     }
 
+    // Filtro de bloqueos: si el caller está logueado, excluir posts cuyo
+    // autor tenga relación de bloqueo en cualquier dirección con él.
+    const meId = request.headers.get('x-user-id')
+    if (meId) {
+      conditions.push(excludeBlockedSql('p.author_id', `$${paramIndex}`))
+      params.push(meId)
+      paramIndex++
+    }
+
     const whereClause = conditions.join(' AND ')
 
     let orderClause: string
@@ -71,12 +81,15 @@ export async function GET(request: NextRequest) {
     const total = parseInt(countResult.rows[0]?.total ?? '0', 10)
 
     // Data query
+    // LATERAL JOIN para coger SOLO la primera imagen (position ASC) sin romper
+    // el GROUP BY del resto de agregados.
     const dataSql = `
       SELECT
         p.id, p.title, p.category, p.game_id, p.author_id,
         p.view_count, p.created_at, p.updated_at,
         u.username as author_username, u.avatar_url as author_avatar,
         g.name as game_name, g.slug as game_slug,
+        pm_thumb.url as thumbnail_url,
         COALESCE(SUM(CASE WHEN v.value = 1 THEN 1 ELSE 0 END), 0)::int as upvotes,
         COALESCE(SUM(CASE WHEN v.value = -1 THEN 1 ELSE 0 END), 0)::int as downvotes,
         COUNT(DISTINCT c.id)::int as comment_count
@@ -85,8 +98,15 @@ export async function GET(request: NextRequest) {
       LEFT JOIN games g ON g.id = p.game_id
       LEFT JOIN votes v ON v.target_type = 'post' AND v.target_id = p.id
       LEFT JOIN comments c ON c.post_id = p.id AND c.is_deleted = FALSE
+      LEFT JOIN LATERAL (
+        SELECT url
+        FROM post_media
+        WHERE post_id = p.id AND type = 'image'
+        ORDER BY position ASC NULLS LAST, created_at ASC
+        LIMIT 1
+      ) pm_thumb ON TRUE
       WHERE ${whereClause}
-      GROUP BY p.id, u.username, u.avatar_url, g.name, g.slug
+      GROUP BY p.id, u.username, u.avatar_url, g.name, g.slug, pm_thumb.url
       ORDER BY ${orderClause}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `
@@ -97,6 +117,7 @@ export async function GET(request: NextRequest) {
       view_count: number; created_at: string; updated_at: string
       author_username: string; author_avatar: string | null
       game_name: string | null; game_slug: string | null
+      thumbnail_url: string | null
       upvotes: number; downvotes: number; comment_count: number
     }>(dataSql, dataParams)
 
@@ -106,6 +127,7 @@ export async function GET(request: NextRequest) {
       category: row.category,
       author: { id: row.author_id, username: row.author_username, avatar_url: row.author_avatar },
       game: row.game_name ? { id: row.game_id, name: row.game_name, slug: row.game_slug } : null,
+      thumbnail_url: row.thumbnail_url,
       upvotes: row.upvotes,
       downvotes: row.downvotes,
       comment_count: row.comment_count,

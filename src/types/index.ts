@@ -20,6 +20,13 @@ export interface User {
   updated_at: string
 }
 
+export interface UserBlock {
+  id: string
+  blocker_id: string
+  blocked_id: string
+  created_at: string
+}
+
 export interface Game {
   id: string
   name: string
@@ -43,6 +50,8 @@ export interface Post {
   view_count: number
   created_at: string
   updated_at: string
+  images?: PostImage[]
+  thumbnail_url?: string | null
 }
 
 export type MediaType = 'image' | 'video_embed'
@@ -54,6 +63,15 @@ export interface PostMedia {
   url: string
   position: number
   created_at: string
+}
+
+// PostImage es una vista filtrada de post_media WHERE type='image'.
+// Existe como tipo separado porque en contextos de galería el discriminador
+// type no aporta nada y ensucia el código consumidor.
+export interface PostImage {
+  id: string
+  url: string
+  position: number
 }
 
 export interface PostStep {

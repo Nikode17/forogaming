@@ -50,6 +50,11 @@ export const CreatePostSchema = z.object({
         position: z.number().int().min(0).optional(),
       })
     )
+    .max(20, 'Demasiados elementos media')
+    .refine(
+      (items) => items.filter((m) => m.type === 'image').length <= 10,
+      { message: 'Máximo 10 imágenes por post' }
+    )
     .optional()
     .default([]),
   steps: z
@@ -153,17 +158,31 @@ export type UpdateUserInput = z.infer<typeof UpdateUserSchema>
 // REPORTS
 // =====================
 
+export const REPORT_REASONS = [
+  'spam',
+  'harassment',
+  'hate_speech',
+  'inappropriate_content',
+  'misinformation',
+  'other',
+] as const
+
 export const CreateReportSchema = z.object({
-  target_type: z.enum(['post', 'comment', 'user']),
+  target_type: z.enum(['post', 'comment', 'user', 'message']),
   target_id: z.string().uuid('target_id inválido'),
-  reason: z.string().min(10, 'Por favor describe el motivo del reporte').max(1000),
+  reason: z.enum(REPORT_REASONS, {
+    errorMap: () => ({ message: 'Motivo no válido' }),
+  }),
+  description: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
 })
 
 export const ResolveReportSchema = z.object({
-  status: z.enum(['resolved', 'dismissed']),
+  action: z.enum(['dismiss', 'remove_content', 'ban_user']),
 })
 
 export type CreateReportInput = z.infer<typeof CreateReportSchema>
+export type ResolveReportInput = z.infer<typeof ResolveReportSchema>
+export type ReportReason = (typeof REPORT_REASONS)[number]
 
 // =====================
 // QUERY PARAMS (paginación y filtros)

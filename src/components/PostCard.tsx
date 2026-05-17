@@ -1,11 +1,12 @@
 import Link from 'next/link'
+import UserActionsMenu from '@/components/UserActionsMenu'
 
 interface PostCardProps {
   post: {
     id: string
     title: string
     category: string
-    author: { username: string; avatar_url: string | null } | null
+    author: { id?: string; username: string; avatar_url: string | null } | null
     game: { name: string; slug: string } | null
     upvotes: number
     downvotes: number
@@ -76,11 +77,18 @@ export default function PostCard({ post }: PostCardProps) {
         {/* Metadatos */}
         <div className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-500 flex-wrap">
           {post.author ? (
-            <span>
+            <span className="inline-flex items-center gap-1">
               por{' '}
               <Link href={`/user/${post.author.username}`} className="text-gray-400 hover:text-indigo-400">
                 {post.author.username}
               </Link>
+              {post.author.id && (
+                <UserActionsMenu
+                  targetUsername={post.author.username}
+                  targetUserId={post.author.id}
+                  reportablePostId={post.id}
+                />
+              )}
             </span>
           ) : (
             <span className="text-gray-600">[eliminado]</span>

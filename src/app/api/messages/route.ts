@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { excludeBlockedSql } from '@/lib/blocks'
 
 function getUser(req: NextRequest) {
   const id = req.headers.get('x-user-id')
@@ -9,6 +10,7 @@ function getUser(req: NextRequest) {
 }
 
 // GET /api/messages  →  lista de conversaciones (último mensaje con cada usuario)
+// Excluye conversaciones con usuarios bloqueados en cualquier dirección.
 export async function GET(req: NextRequest) {
   const me = getUser(req)
   if (!me) return NextResponse.json({ error: { code: 'UNAUTHORIZED' } }, { status: 401 })
@@ -44,6 +46,7 @@ export async function GET(req: NextRequest) {
     LEFT JOIN direct_messages dm
       ON (dm.sender_id = $1 AND dm.receiver_id = convs.other_id)
       OR (dm.sender_id = convs.other_id AND dm.receiver_id = $1)
+    WHERE ${excludeBlockedSql('u.id', '$1')}
     GROUP BY u.id, u.username, u.avatar_url, last_msg.body, last_msg.created_at
     ORDER BY last_msg.created_at DESC
   `, [me.id])

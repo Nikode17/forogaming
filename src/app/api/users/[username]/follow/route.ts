@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { getBlockRelation, hasAnyBlock } from '@/lib/blocks'
 
 function getUser(req: NextRequest) {
   const id = req.headers.get('x-user-id')
@@ -13,6 +14,7 @@ function err(code: string, message: string, status: number) {
 }
 
 // GET /api/users/[username]/follow  → estado de seguimiento
+// Si hay bloqueo, devuelve following:false (no leak).
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ username: string }> }
@@ -25,6 +27,9 @@ export async function GET(
     'SELECT id FROM users WHERE username = $1', [username]
   )
   if (!target.rows[0]) return NextResponse.json({ following: false })
+
+  const rel = await getBlockRelation(me.id, target.rows[0].id)
+  if (hasAnyBlock(rel)) return NextResponse.json({ following: false })
 
   const f = await query(
     'SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2',
@@ -50,6 +55,10 @@ export async function POST(
     'SELECT id FROM users WHERE username = $1', [username]
   )
   if (!target.rows[0]) return err('NOT_FOUND', 'Usuario no encontrado', 404)
+
+  // 403 si hay bloqueo en cualquier dirección
+  const rel = await getBlockRelation(me.id, target.rows[0].id)
+  if (hasAnyBlock(rel)) return err('FORBIDDEN', 'No puedes seguir a este usuario', 403)
 
   await query(
     `INSERT INTO follows (follower_id, following_id)

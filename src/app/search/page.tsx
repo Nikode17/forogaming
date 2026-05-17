@@ -1,18 +1,7 @@
 import Feed from '@/components/Feed'
 import Sidebar from '@/components/Sidebar'
 import type { PostCardProps } from '@/components/PostCard'
-
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-
-async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T | null> {
-  try {
-    const res = await fetch(`${baseUrl}${path}`, { next: { revalidate: 60 }, ...opts })
-    if (!res.ok) return null
-    return res.json() as Promise<T>
-  } catch {
-    return null
-  }
-}
+import { serverApiFetch } from '@/lib/server-auth'
 
 interface GameItem {
   id: string
@@ -46,7 +35,7 @@ export default async function SearchPage({
 }) {
   const { q, page = '1' } = await searchParams
 
-  const gamesData = await apiFetch<{ data: GameItem[] }>('/api/games')
+  const gamesData = await serverApiFetch<{ data: GameItem[] }>('/api/games')
   const games = gamesData?.data ?? []
 
   // Sin query: pagina de busqueda inicial
@@ -86,7 +75,7 @@ export default async function SearchPage({
   }
 
   // Con query: buscar posts
-  const searchData = await apiFetch<SearchResponse>(
+  const searchData = await serverApiFetch<SearchResponse>(
     `/api/posts/search?q=${encodeURIComponent(q)}&page=${page}`
   )
 

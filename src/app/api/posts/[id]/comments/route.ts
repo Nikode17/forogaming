@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { CreateCommentSchema, formatZodError } from '@/lib/validation'
 import { sanitizeComment } from '@/lib/sanitize'
+import { excludeBlockedSql, getBlockRelation, hasAnyBlock } from '@/lib/blocks'
 
 type UserRole = 'admin' | 'moderator' | 'user' | 'guest'
 
@@ -28,7 +29,7 @@ interface CommentNode {
   is_deleted: boolean
   created_at: string
   updated_at: string
-  author: { username: string; avatar_url: string | null } | null
+  author: { id: string; username: string; avatar_url: string | null } | null
   upvotes: number
   downvotes: number
   replies: CommentNode[]
@@ -59,6 +60,19 @@ export async function GET(
   try {
     const { id } = await params
 
+    // Filtro de bloqueos: si el caller está logueado, no traer comentarios
+    // cuyo autor tenga relación de bloqueo en cualquier dirección. Los
+    // replies legítimos cuyo ancestro sea bloqueado quedan huérfanos en el
+    // SQL y buildTree los descarta silenciosamente (decisión c1 = ocultar
+    // subárbol completo).
+    const meId = request.headers.get('x-user-id')
+    const sqlParams: unknown[] = [id]
+    let blockedClause = ''
+    if (meId) {
+      sqlParams.push(meId)
+      blockedClause = ` AND (c.author_id IS NULL OR ${excludeBlockedSql('c.author_id', '$2')})`
+    }
+
     const result = await query<{
       id: string; post_id: string; author_id: string | null; parent_id: string | null
       body: string; is_deleted: boolean; created_at: string; updated_at: string
@@ -75,9 +89,10 @@ export async function GET(
       LEFT JOIN users u ON u.id = c.author_id
       LEFT JOIN votes v ON v.target_type = 'comment' AND v.target_id = c.id
       WHERE  c.post_id = $1
+        ${blockedClause}
       GROUP  BY c.id, u.username, u.avatar_url
       ORDER  BY c.created_at ASC
-    `, [id])
+    `, sqlParams)
 
     const flat: CommentNode[] = result.rows.map(r => {
       if (r.is_deleted) {
@@ -103,8 +118,8 @@ export async function GET(
         is_deleted: false,
         created_at: r.created_at,
         updated_at: r.updated_at,
-        author: r.author_username
-          ? { username: r.author_username, avatar_url: r.author_avatar }
+        author: r.author_username && r.author_id
+          ? { id: r.author_id, username: r.author_username, avatar_url: r.author_avatar }
           : null,
         upvotes: Number(r.upvotes),
         downvotes: Number(r.downvotes),
@@ -138,12 +153,21 @@ export async function POST(
     }
 
     // Verify post exists and is not deleted
-    const postResult = await query<{ id: string }>(`
-      SELECT id FROM posts WHERE id = $1 AND is_deleted = FALSE
+    const postResult = await query<{ id: string; author_id: string | null }>(`
+      SELECT id, author_id FROM posts WHERE id = $1 AND is_deleted = FALSE
     `, [postId])
 
     if (postResult.rows.length === 0) {
       return err('NOT_FOUND', 'Post no encontrado', 404)
+    }
+
+    // 403 si el autor del post tiene relación de bloqueo bidireccional con el caller
+    const postAuthorId = postResult.rows[0].author_id
+    if (postAuthorId) {
+      const rel = await getBlockRelation(user.id, postAuthorId)
+      if (hasAnyBlock(rel)) {
+        return err('FORBIDDEN', 'No puedes comentar en este post', 403)
+      }
     }
 
     const body = await request.json()
@@ -188,7 +212,7 @@ export async function POST(
     return NextResponse.json({
       data: {
         ...comment,
-        author: { username: user.username },
+        author: { id: user.id, username: user.username },
       },
     }, { status: 201 })
   } catch (error) {

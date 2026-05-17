@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { query, withTransaction } from '@/lib/db'
 import { UpdatePostSchema, formatZodError } from '@/lib/validation'
 import { sanitizePostBody, isAllowedEmbedUrl, isValidImageUrl } from '@/lib/sanitize'
+import { getBlockRelation, hasAnyBlock } from '@/lib/blocks'
 
 type UserRole = 'admin' | 'moderator' | 'user' | 'guest'
 
@@ -54,6 +55,15 @@ export async function GET(
 
     const row = postResult.rows[0]
 
+    // Bloqueo bidireccional: si el caller tiene cualquier relación de bloqueo
+    // con el autor, devolvemos 404 (no se filtra antes para no separar lógica
+    // de filtros entre listado y detalle; aquí asumimos baja cardinalidad).
+    const meId = request.headers.get('x-user-id')
+    if (meId && row.author_id) {
+      const rel = await getBlockRelation(meId, row.author_id)
+      if (hasAnyBlock(rel)) return err('NOT_FOUND', 'Post no encontrado', 404)
+    }
+
     // Parallel fetches for media, steps, and vote/like counts
     const [mediaResult, stepsResult, votesResult, likesResult] = await Promise.all([
       query<{ id: string; type: string; url: string; position: number }>(`
@@ -102,6 +112,9 @@ export async function GET(
         ? { id: row.game_id, name: row.game_name, slug: row.game_slug }
         : null,
       media: mediaResult.rows,
+      images: mediaResult.rows
+        .filter((m) => m.type === 'image')
+        .map((m) => ({ id: m.id, url: m.url, position: m.position })),
       steps: stepsResult.rows,
       upvotes: Number(votes?.upvotes ?? 0),
       downvotes: Number(votes?.downvotes ?? 0),

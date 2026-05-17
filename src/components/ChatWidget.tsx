@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
+import ReportModal from '@/components/ReportModal'
 
 interface Conversation {
   other_id: string
@@ -53,6 +54,7 @@ export default function ChatWidget() {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [reportingMsg, setReportingMsg] = useState<{ id: string; sender: string } | null>(null)
   const lastCreatedAt = useRef<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -310,7 +312,7 @@ export default function ChatWidget() {
                         {group.msgs.map(msg => {
                           const isMe = msg.sender_id === user.id
                           return (
-                            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1`}>
+                            <div key={msg.id} className={`group flex items-center gap-1 ${isMe ? 'justify-end' : 'justify-start'} mb-1`}>
                               <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${
                                 isMe
                                   ? 'bg-indigo-600 text-white rounded-br-sm'
@@ -321,6 +323,19 @@ export default function ChatWidget() {
                                   {formatTime(msg.created_at)}
                                 </p>
                               </div>
+                              {!isMe && activeChat && (
+                                <button
+                                  type="button"
+                                  onClick={() => setReportingMsg({ id: msg.id, sender: activeChat })}
+                                  aria-label="Reportar mensaje"
+                                  className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-opacity p-1"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                                    <line x1="4" y1="22" x2="4" y2="15" />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
                           )
                         })}
@@ -373,6 +388,16 @@ export default function ChatWidget() {
           </button>
         )}
       </div>
+
+      {reportingMsg && (
+        <ReportModal
+          isOpen={true}
+          onClose={() => setReportingMsg(null)}
+          targetType="message"
+          targetId={reportingMsg.id}
+          targetLabel={`este mensaje de @${reportingMsg.sender}`}
+        />
+      )}
     </>
   )
 }
