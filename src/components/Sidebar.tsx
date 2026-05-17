@@ -134,7 +134,9 @@ export default function Sidebar({ games = [] }: SidebarProps) {
   const renderContent = (isMobile = false) => {
     const isExpanded = isMobile || !collapsed
     return (
-      <div className="flex flex-col h-full overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-col h-full overflow-x-hidden">
+        {/* ÁREA SCROLLABLE (todo menos el footer del toggle) */}
+        <div className="flex-1 overflow-y-auto respawn-scrollbar">
         {/* SEARCH */}
         <div className={`p-3 border-b border-gray-800 shrink-0 ${isExpanded ? '' : 'flex justify-center'}`}>
           {isExpanded ? (
@@ -238,7 +240,7 @@ export default function Sidebar({ games = [] }: SidebarProps) {
         </nav>
 
         {/* JUEGOS POPULARES (collapsible cuando isExpanded) */}
-        <nav className="p-3 flex-1 min-h-0">
+        <nav className="p-3">
           {isExpanded && (
             <button
               type="button"
@@ -303,14 +305,17 @@ export default function Sidebar({ games = [] }: SidebarProps) {
           )}
         </nav>
 
-        {/* TOGGLE colapsado/expandido (desktop only) */}
+        </div>
+        {/* /ÁREA SCROLLABLE */}
+
+        {/* FOOTER FIJO: botón colapsar siempre visible al fondo (desktop only) */}
         {!isMobile && (
-          <div className="border-t border-gray-800 p-2 shrink-0">
+          <div className="border-t border-gray-800 p-2 shrink-0 flex justify-end">
             <button
               type="button"
               onClick={() => setCollapsed((v) => !v)}
               aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
-              className="w-full flex items-center justify-center h-8 rounded text-gray-500 hover:text-white hover:bg-gray-800 transition-colors"
+              className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

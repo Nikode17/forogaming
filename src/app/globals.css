@@ -4,9 +4,33 @@
 
 /* Reserva el hueco del scrollbar siempre: evita que el contenido se desplace
    horizontalmente entre páginas con y sin scroll vertical (p. ej. home vs
-   detalle de post). */
+   detalle de post).
+
+   overflow-x: hidden vive aquí (no en body) para no romper position: sticky
+   de descendientes. body con overflow-x: hidden crea un contexto de scroll
+   que cancela los stickies (ej. la sidebar). */
 html {
   scrollbar-gutter: stable;
+  overflow-x: hidden;
+}
+
+/* Scrollbar estilizada para zonas scrollables internas (ej. sidebar). */
+.respawn-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 transparent;
+}
+.respawn-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.respawn-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.respawn-scrollbar::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+.respawn-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
 /* TODO: Definir paleta de colores definitiva con el equipo de diseño */
