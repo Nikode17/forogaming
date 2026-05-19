@@ -33,8 +33,14 @@ html {
   background: #6b7280;
 }
 
-/* TODO: Definir paleta de colores definitiva con el equipo de diseño */
-
+/* DEUDA TÉCNICA (planificada para Fase 1.5 del sistema de paletas):
+   este bloque :root con --color-bg-primary etc. es legacy del scaffolding
+   inicial. Solo queda referenciado por `body { background-color: ... }` más
+   abajo, pero ese estilo está sobrescrito por la utilidad Tailwind
+   `bg-gray-950` aplicada al body en layout.tsx. Si en el futuro se quita
+   ese className, el body caería al fallback legacy (#0f0f13) y NO al token
+   semántico nuevo. Eliminar este bloque + el `body { background-color }`
+   en Fase 1.5 junto con la migración de componentes core. */
 :root {
   --color-bg-primary: #0f0f13;
   --color-bg-secondary: #1a1a24;
@@ -47,6 +53,40 @@ html {
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-border: #2e2e3a;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Sistema de paletas con nombre — tokens semánticos.
+   Formato R G B (espacio-separado, sin coma) para soportar opacity
+   utilities de Tailwind via `rgb(var(--x) / <alpha-value>)`.
+   Ver PALETAS_SPEC.md para arquitectura y catálogo completo.
+   ──────────────────────────────────────────────────────────────────── */
+
+:root,
+[data-palette="cybertech"] {
+  /* Superficies */
+  --color-bg-base:        3 7 18;       /* gray-950 */
+  --color-bg-elevated:    17 24 39;     /* gray-900 */
+  --color-bg-overlay:     31 41 55;     /* gray-800 */
+
+  /* Bordes */
+  --color-border-default: 31 41 55;     /* gray-800 */
+  --color-border-strong:  55 65 81;     /* gray-700 */
+
+  /* Texto */
+  --color-text-primary:   243 244 246;  /* gray-100 */
+  --color-text-secondary: 209 213 219;  /* gray-300 */
+  --color-text-muted:     156 163 175;  /* gray-400 */
+
+  /* Acento */
+  --color-accent-default: 79 70 229;    /* indigo-600 */
+  --color-accent-hover:   99 102 241;   /* indigo-500 */
+  --color-accent-fg:      255 255 255;  /* white */
+
+  /* Estado */
+  --color-success:        34 197 94;    /* green-500 */
+  --color-warning:        245 158 11;   /* amber-500 */
+  --color-danger:         239 68 68;    /* red-500 */
 }
 
 body {
